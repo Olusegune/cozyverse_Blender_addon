@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.blend
+*.blend1
+*.blend2
+.pytest_cache/
+
+# Local build and QA artifacts
+work/
+outputs/
+
