@@ -9,7 +9,7 @@ CozyVerse Builder targets Blender 4.5 LTS through 5.2 LTS. Automated Blender tes
 1. Open Blender.
 2. Choose **Edit > Preferences > Get Extensions**.
 3. Open the menu in the upper-right and choose **Install from Disk**.
-4. Select `outputs/cozyverse_builder-0.4.0.zip`.
+4. Select `outputs/cozyverse_builder-0.5.0.zip`.
 5. Enable **CozyVerse Builder** if Blender does not enable it automatically.
 6. Open the 3D View and press `N` to show the sidebar.
 7. Select the **CozyVerse** tab.

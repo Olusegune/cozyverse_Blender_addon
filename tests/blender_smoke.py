@@ -14,6 +14,8 @@ addon_parent = repo_root / "blender_addon"
 sys.path.insert(0, str(addon_parent))
 
 addon = importlib.import_module("cozyverse_builder")
+from cozyverse_builder.providers.contracts import build_plan
+
 addon.register()
 try:
     assert hasattr(bpy.types.Scene, "cozyverse")
@@ -71,6 +73,16 @@ try:
     settings.rain_amount = 45.0
     assert bpy.ops.cozyverse.save_atmosphere_preset() == {"FINISHED"}
     assert "cv_custom_atmosphere_preset" in bpy.context.scene
+
+    generation_plan = build_plan("TRIPO", "a stylized low-poly street food cart")
+    settings.generation_prompt = generation_plan.prompt
+    settings.generation_plan_json = generation_plan.canonical_json()
+    settings.generation_fingerprint = generation_plan.fingerprint()
+    settings.generation_approved = True
+    assert bpy.ops.cozyverse.run_mock_generation() == {"FINISHED"}
+    mock_asset = bpy.data.objects.get("CV_Mock_Generated_Asset")
+    assert mock_asset is not None and mock_asset.get("cv_provider_mock") is True
+    assert settings.generation_approved is False
 
     store = bpy.data.objects["CV_SariSari_Store"]
     store.location.x += 0.75

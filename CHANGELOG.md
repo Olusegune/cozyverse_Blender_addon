@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Added official-contract request builders for Tripo v3 and Meshy text-to-3D v2.
+- Added normalized submit/status parsers and strict HTTPS GLB/GLTF download-host validation.
+- Added a Generate workspace with request preview, cost warning, payload fingerprint, explicit approval, and zero-cost mock execution.
+- Added provider contract tests; live billable submission remains disabled pending asynchronous job and import review.
+
 ## 0.4.0
 
 - Added a full-area multiline prompt workflow using Blender's Text Editor and a guided return action.

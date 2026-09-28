@@ -132,6 +132,38 @@ def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
         history.label(text=settings.last_demo_prompt[:72])
 
 
+def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
+    preferences = _addon_preferences(context)
+    provider_name = preferences.generation_provider if preferences else "NONE"
+    hero = layout.box()
+    hero.label(text="3D ASSET FACTORY", icon="MESH_ICOSPHERE")
+    hero.label(text=f"Provider: {provider_name.title()}")
+    hero.label(text="Local assets should be checked before paid generation", icon="INFO")
+
+    request = layout.box()
+    request.label(text="1  DESCRIBE ONE MISSING ASSET", icon="TEXT")
+    request.prop(settings, "generation_prompt", text="")
+    request.operator("cozyverse.preview_generation", text="PREVIEW REQUEST", icon="PREVIEW_RANGE")
+
+    review = layout.box()
+    review.label(text="2  REVIEW IMPACT AND COST", icon="DOCUMENTS")
+    review.label(text=settings.generation_status)
+    for line in _wrapped_lines(settings.generation_cost_note, width=36, limit=4):
+        review.label(text=line)
+    if settings.generation_fingerprint:
+        review.label(text=f"Plan: {settings.generation_fingerprint[:12]}", icon="CHECKMARK")
+    review.prop(settings, "generation_approved")
+    mock = review.column()
+    mock.enabled = bool(settings.generation_plan_json and settings.generation_approved)
+    mock.scale_y = 1.3
+    mock.operator("cozyverse.run_mock_generation", text="RUN SAFE MOCK JOB", icon="PLAY")
+
+    boundary = layout.box()
+    boundary.label(text="LIVE PROVIDER BOUNDARY", icon="LOCKED")
+    boundary.label(text="No Tripo or Meshy request is sent in this build")
+    boundary.label(text="Live submission needs polling, cancellation and import review")
+
+
 def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> None:
     preferences = _addon_preferences(context)
     secrets = context.window_manager.cozyverse_secrets
@@ -197,7 +229,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.4.0 Recovery R1")
+    about.label(text="CozyVerse 0.5.0 Provider Foundation")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
@@ -213,6 +245,8 @@ class CV_PT_Main(_CVPanel, bpy.types.Panel):
             _draw_create(layout, settings)
         elif settings.active_tab == "ATMOSPHERE":
             _draw_atmosphere(layout, settings)
+        elif settings.active_tab == "GENERATE":
+            _draw_generate(context, layout, settings)
         elif settings.active_tab == "ACTIVITY":
             _draw_activity(layout, settings)
         else:

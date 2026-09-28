@@ -139,8 +139,9 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         items=(
             ("CREATE", "Create", "Create an editable local demonstration", "MOD_BUILD", 0),
             ("ATMOSPHERE", "Atmosphere", "Control lighting, time, and rain", "LIGHT_SUN", 1),
-            ("ACTIVITY", "Activity", "Review current status and local activity", "INFO", 2),
-            ("SETTINGS", "Settings", "Configure local and future provider settings", "PREFERENCES", 3),
+            ("GENERATE", "Generate", "Preview and approve optional 3D generation", "MESH_ICOSPHERE", 2),
+            ("ACTIVITY", "Activity", "Review current status and local activity", "INFO", 3),
+            ("SETTINGS", "Settings", "Configure local and future provider settings", "PREFERENCES", 4),
         ),
         default="CREATE",
     )
@@ -217,6 +218,21 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     fog_amount: FloatProperty(name="Fog", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE")
     wind_amount: FloatProperty(name="Wind", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE")
     wetness_amount: FloatProperty(name="Wetness", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE")
+    generation_prompt: StringProperty(
+        name="Asset Prompt",
+        description="Describe one missing 3D asset for Tripo or Meshy",
+        default="A stylized low-poly market stall with a fabric awning",
+        maxlen=1024,
+    )
+    generation_plan_json: StringProperty(name="Generation Plan", default="", options={"HIDDEN"})
+    generation_fingerprint: StringProperty(name="Plan Fingerprint", default="", options={"HIDDEN"})
+    generation_cost_note: StringProperty(name="Cost Notice", default="No provider request has been prepared")
+    generation_approved: BoolProperty(
+        name="I approve this mock job",
+        description="Approval applies only to the exact previewed request and resets after submission",
+        default=False,
+    )
+    generation_status: StringProperty(name="Generation Status", default="Not prepared")
 
 
 _CLASSES = (CV_AddonPreferences, CV_SessionSecrets, CV_SceneSettings)

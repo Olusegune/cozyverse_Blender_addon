@@ -9,6 +9,7 @@ from .atmosphere import apply_atmosphere
 from .core.atmosphere_spec import AtmosphereValues, PRESETS, serialize_preset
 from .core.demo_spec import DEFAULT_PROMPT
 from .world_builder import build_offline_world
+from .providers.contracts import build_plan
 
 
 def _prompt_from_settings(settings) -> str:
@@ -229,6 +230,61 @@ class CV_OT_ValidateGenerationSettings(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CV_OT_PreviewGeneration(bpy.types.Operator):
+    bl_idname = "cozyverse.preview_generation"
+    bl_label = "Preview Generation Request"
+    bl_description = "Create a reviewable Tripo or Meshy request without sending it"
+
+    def execute(self, context: bpy.types.Context):
+        entry = context.preferences.addons.get(__package__)
+        preferences = entry.preferences if entry else None
+        settings = context.scene.cozyverse
+        if preferences is None or preferences.generation_provider == "NONE":
+            settings.generation_status = "Select Tripo or Meshy in Settings"
+            return {"CANCELLED"}
+        try:
+            plan = build_plan(preferences.generation_provider, settings.generation_prompt)
+        except ValueError as exc:
+            settings.generation_status = str(exc)
+            return {"CANCELLED"}
+        settings.generation_plan_json = plan.canonical_json()
+        settings.generation_fingerprint = plan.fingerprint()
+        settings.generation_cost_note = plan.cost_note
+        settings.generation_approved = False
+        settings.generation_status = f"Ready for review: {plan.provider} {plan.model}"
+        self.report({"INFO"}, "Generation request previewed; nothing was sent")
+        return {"FINISHED"}
+
+
+class CV_OT_RunMockGeneration(bpy.types.Operator):
+    bl_idname = "cozyverse.run_mock_generation"
+    bl_label = "Run Safe Mock Job"
+    bl_description = "Exercise the approved generation workflow without contacting a provider or spending credits"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if not settings.generation_plan_json or not settings.generation_approved:
+            settings.generation_status = "Preview the request and approve the exact mock job first"
+            return {"CANCELLED"}
+        collection = bpy.data.collections.get("CV_GENERATED_PREVIEWS")
+        if collection is None:
+            collection = bpy.data.collections.new("CV_GENERATED_PREVIEWS")
+            context.scene.collection.children.link(collection)
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=0.8)
+        obj = context.object
+        for owner in list(obj.users_collection):
+            owner.objects.unlink(obj)
+        collection.objects.link(obj)
+        obj.name = "CV_Mock_Generated_Asset"
+        obj["cv_provider_mock"] = True
+        obj["cv_plan_fingerprint"] = settings.generation_fingerprint
+        obj["cv_prompt"] = settings.generation_prompt
+        settings.generation_approved = False
+        settings.generation_status = "Mock job completed; no provider request or charge occurred"
+        return {"FINISHED"}
+
+
 class CV_OT_ValidateProviderSettings(bpy.types.Operator):
     bl_idname = "cozyverse.validate_provider_settings"
     bl_label = "Validate Configuration"
@@ -268,6 +324,8 @@ _CLASSES = (
     CV_OT_ClearApiKey,
     CV_OT_ClearGenerationKey,
     CV_OT_ValidateGenerationSettings,
+    CV_OT_PreviewGeneration,
+    CV_OT_RunMockGeneration,
     CV_OT_ValidateProviderSettings,
 )
 

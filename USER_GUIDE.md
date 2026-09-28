@@ -32,6 +32,10 @@ Choose Local Only or configure fields for a future AI provider adapter. The foun
 
 The 3D Generation section provides separate masked session fields for Tripo and Meshy. Select a provider and use **Check Setup Locally** to confirm that its key is loaded. This check never contacts Tripo or Meshy. Generation submission remains disabled until a later approved adapter adds request previews, estimated cost, explicit per-job consent, polling, cancellation, download validation, and provenance.
 
+### Generate
+
+The Generate workspace prepares an official-contract request for the selected provider. It shows the pinned model, provider cost warning, and a fingerprint for the exact payload. Approval resets whenever the request is previewed. **Run Safe Mock Job** creates an editable placeholder with the plan fingerprint and never contacts a provider or spends credits. Live submission remains disabled until asynchronous polling, cancellation, validated download, and import review are complete.
+
 ## API key safety
 
 The **Session Key** field is masked and attached to Blender's runtime window manager. It is not stored in the scene, `.blend` file, source tree, or CozyVerse logs. You must enter it again after restarting Blender.
