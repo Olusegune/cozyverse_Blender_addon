@@ -1,123 +1,69 @@
-"""Allowlisted Blender operators for the CozyVerse foundation milestone."""
+"""Allowlisted CozyVerse operators for recovery milestone R1."""
 
 from __future__ import annotations
 
-import math
-
 import bpy
 
-from .core.demo_spec import (
-    DEMO_COLLECTION_NAME,
-    DEMO_ITEMS,
-    DEMO_SCHEMA_VERSION,
-    normalized_prompt,
-    validate_demo_spec,
-)
+from .atmosphere import apply_atmosphere
+from .core.atmosphere_spec import AtmosphereValues, PRESETS, serialize_preset
+from .core.demo_spec import DEFAULT_PROMPT
+from .world_builder import build_offline_world
 
 
-def _prepare_demo_collection(scene: bpy.types.Scene) -> bpy.types.Collection:
-    collection = bpy.data.collections.get(DEMO_COLLECTION_NAME)
-    if collection is None:
-        collection = bpy.data.collections.new(DEMO_COLLECTION_NAME)
-        scene.collection.children.link(collection)
-    else:
-        for obj in list(collection.objects):
-            if obj.get("cv_demo") is True:
-                bpy.data.objects.remove(obj, do_unlink=True)
-    collection["cv_managed"] = True
-    collection["cv_demo"] = True
-    collection["cv_schema_version"] = DEMO_SCHEMA_VERSION
-    return collection
-
-
-def _move_to_collection(obj: bpy.types.Object, collection: bpy.types.Collection) -> None:
-    for owner in list(obj.users_collection):
-        owner.objects.unlink(obj)
-    collection.objects.link(obj)
-
-
-def _mark_object(obj: bpy.types.Object, item_name: str) -> None:
-    obj.name = item_name
-    obj["cv_id"] = item_name.lower()
-    obj["cv_managed"] = True
-    obj["cv_demo"] = True
-    obj["cv_provenance"] = "bundled_procedural_demo"
-
-
-def _add_tree(item, collection: bpy.types.Collection) -> None:
-    x, y, z = item.location
-    sx, sy, sz = item.scale
-    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.18 * sx, depth=1.5 * sz, location=(x, y, z + 0.75 * sz))
-    trunk = bpy.context.object
-    _mark_object(trunk, f"{item.name}_Trunk")
-    _move_to_collection(trunk, collection)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=0.9 * sx, location=(x, y, z + 1.8 * sz))
-    crown = bpy.context.object
-    crown.scale = (1.0, sy / sx, 1.15 * sz / sx)
-    _mark_object(crown, f"{item.name}_Crown")
-    _move_to_collection(crown, collection)
-
-
-def _create_geometry(collection: bpy.types.Collection) -> None:
-    for item in DEMO_ITEMS:
-        if item.kind == "tree":
-            _add_tree(item, collection)
-            continue
-        if item.kind == "cube":
-            bpy.ops.mesh.primitive_cube_add(location=item.location)
-        elif item.kind == "cone4":
-            bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=1.0, radius2=0.0, depth=2.0, location=item.location)
-            bpy.context.object.rotation_euler[2] = math.radians(45)
-        obj = bpy.context.object
-        obj.scale = item.scale
-        _mark_object(obj, item.name)
-        _move_to_collection(obj, collection)
-
-
-def _create_lighting_and_camera(collection: bpy.types.Collection) -> None:
-    sun_data = bpy.data.lights.new("CV_Demo_Sun", type="SUN")
-    sun_data.energy = 2.0
-    sun_data.color = (1.0, 0.72, 0.48)
-    sun = bpy.data.objects.new("CV_Demo_Sun", sun_data)
-    sun.rotation_euler = (math.radians(28), math.radians(-18), math.radians(32))
-    collection.objects.link(sun)
-    _mark_object(sun, "CV_Demo_Sun")
-
-    camera_data = bpy.data.cameras.new("CV_Demo_Camera")
-    camera_data.type = "ORTHO"
-    camera_data.ortho_scale = 13.0
-    camera = bpy.data.objects.new("CV_Demo_Camera", camera_data)
-    camera.location = (10.5, -12.0, 10.0)
-    camera.rotation_euler = (math.radians(58), 0.0, math.radians(40))
-    collection.objects.link(camera)
-    _mark_object(camera, "CV_Demo_Camera")
-    bpy.context.scene.camera = camera
+def _prompt_from_settings(settings) -> str:
+    if settings.prompt_text is not None:
+        multiline = settings.prompt_text.as_string().strip()
+        if multiline:
+            return multiline[:4000]
+    return settings.prompt.strip()[:4000]
 
 
 class CV_OT_CreateLocalDemo(bpy.types.Operator):
     bl_idname = "cozyverse.create_local_demo"
-    bl_label = "Create Local Demo"
-    bl_description = "Create an editable deterministic miniature scene without network access"
+    bl_label = "Build World"
+    bl_description = "Build a new editable miniature world locally without an AI or paid service"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context: bpy.types.Context):
         settings = context.scene.cozyverse
+        prompt = _prompt_from_settings(settings)
+        if not prompt:
+            settings.status = "Add a world description before building"
+            self.report({"WARNING"}, settings.status)
+            return {"CANCELLED"}
         try:
-            validate_demo_spec()
-            collection = _prepare_demo_collection(context.scene)
-            _create_geometry(collection)
-            _create_lighting_and_camera(collection)
-            prompt = normalized_prompt(settings.prompt)
-            collection["cv_prompt"] = prompt
-            collection["cv_preset"] = settings.preset
+            settings.status = "Building editable offline world..."
+            world = build_offline_world(context.scene, settings, prompt)
             settings.last_demo_prompt = prompt
-            settings.status = f"Local demo ready: {len(collection.objects)} editable objects"
+            settings.status = f"World ready: {world.name}"
             self.report({"INFO"}, settings.status)
             return {"FINISHED"}
         except Exception as exc:
-            settings.status = f"Demo failed: {exc}"
+            settings.status = f"Build failed: {exc}"
             self.report({"ERROR"}, settings.status)
             return {"CANCELLED"}
+
+
+class CV_OT_EditMultilinePrompt(bpy.types.Operator):
+    bl_idname = "cozyverse.edit_multiline_prompt"
+    bl_label = "Edit Multiline Prompt"
+    bl_description = "Open a Blender Text datablock for a longer world description"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        text = settings.prompt_text or bpy.data.texts.get("CV_World_Prompt")
+        if text is None:
+            text = bpy.data.texts.new("CV_World_Prompt")
+            text.write(settings.prompt or DEFAULT_PROMPT)
+        settings.prompt_text = text
+        if context.area is None:
+            settings.status = "Multiline prompt created; open CV_World_Prompt in a Text Editor"
+            return {"FINISHED"}
+        context.area.type = "TEXT_EDITOR"
+        context.space_data.text = text
+        settings.status = "Editing CV_World_Prompt; press Shift+F5 to return to 3D View"
+        self.report({"INFO"}, settings.status)
+        return {"FINISHED"}
 
 
 class CV_OT_ResetPrompt(bpy.types.Operator):
@@ -127,10 +73,74 @@ class CV_OT_ResetPrompt(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def execute(self, context: bpy.types.Context):
-        from .core.demo_spec import DEFAULT_PROMPT
+        settings = context.scene.cozyverse
+        settings.prompt = DEFAULT_PROMPT
+        if settings.prompt_text is not None:
+            settings.prompt_text.clear()
+            settings.prompt_text.write(DEFAULT_PROMPT)
+        settings.status = "Prompt reset"
+        return {"FINISHED"}
 
-        context.scene.cozyverse.prompt = DEFAULT_PROMPT
-        context.scene.cozyverse.status = "Prompt reset"
+
+class CV_OT_ApplyAtmosphere(bpy.types.Operator):
+    bl_idname = "cozyverse.apply_atmosphere"
+    bl_label = "Apply Atmosphere"
+    bl_description = "Apply all Atmosphere Lab settings to the active CozyVerse world"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if not apply_atmosphere(context.scene, settings):
+            settings.status = "Build a world before applying atmosphere"
+            self.report({"WARNING"}, settings.status)
+            return {"CANCELLED"}
+        settings.status = "Atmosphere applied to Blender lights and weather"
+        self.report({"INFO"}, settings.status)
+        return {"FINISHED"}
+
+
+class CV_OT_ResetAtmosphere(bpy.types.Operator):
+    bl_idname = "cozyverse.reset_atmosphere"
+    bl_label = "Reset Atmosphere"
+    bl_description = "Reset Atmosphere Lab to Golden Hour"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        values = PRESETS["GOLDEN_HOUR"]
+        settings.atmosphere_preset = "GOLDEN_HOUR"
+        settings.time_hour = values.time_hour
+        settings.sun_intensity = values.sun_intensity
+        settings.warmth = values.warmth
+        settings.ambient_intensity = values.ambient_intensity
+        settings.interior_intensity = values.interior_intensity
+        settings.weather = values.weather
+        settings.rain_amount = values.rain_amount
+        apply_atmosphere(context.scene, settings)
+        settings.status = "Atmosphere reset to Golden Hour"
+        return {"FINISHED"}
+
+
+class CV_OT_SaveAtmospherePreset(bpy.types.Operator):
+    bl_idname = "cozyverse.save_atmosphere_preset"
+    bl_label = "Save Custom Preset"
+    bl_description = "Save current atmosphere values in the scene as versioned JSON"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        values = AtmosphereValues(
+            settings.time_hour,
+            settings.sun_intensity,
+            settings.warmth,
+            settings.ambient_intensity,
+            settings.interior_intensity,
+            settings.weather,
+            settings.rain_amount,
+        )
+        context.scene["cv_custom_atmosphere_preset"] = serialize_preset(values)
+        settings.atmosphere_preset = "CUSTOM"
+        settings.status = "Custom atmosphere preset saved in this scene"
         return {"FINISHED"}
 
 
@@ -176,7 +186,11 @@ class CV_OT_ValidateProviderSettings(bpy.types.Operator):
 
 _CLASSES = (
     CV_OT_CreateLocalDemo,
+    CV_OT_EditMultilinePrompt,
     CV_OT_ResetPrompt,
+    CV_OT_ApplyAtmosphere,
+    CV_OT_ResetAtmosphere,
+    CV_OT_SaveAtmospherePreset,
     CV_OT_ClearApiKey,
     CV_OT_ValidateProviderSettings,
 )
@@ -190,3 +204,4 @@ def register() -> None:
 def unregister() -> None:
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
+

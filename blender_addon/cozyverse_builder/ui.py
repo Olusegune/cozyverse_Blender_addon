@@ -32,13 +32,15 @@ def _draw_header(layout: bpy.types.UILayout, settings) -> None:
 
 def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     prompt = layout.box()
-    prompt.label(text="WORLD PROMPT", icon="TEXT")
+    prompt.label(text="DESCRIBE YOUR WORLD", icon="TEXT")
     prompt.prop(settings, "prompt", text="")
+    prompt.prop(settings, "prompt_text", text="Long Prompt")
+    prompt.operator("cozyverse.edit_multiline_prompt", text="Edit Multiline Prompt", icon="TEXT")
     prompt.prop(settings, "preset", text="Style")
 
     action = layout.column(align=True)
     action.scale_y = 1.4
-    action.operator("cozyverse.create_local_demo", text="GENERATE LOCAL WORLD", icon="MOD_BUILD")
+    action.operator("cozyverse.create_local_demo", text="BUILD WORLD", icon="MOD_BUILD")
     reset = action.row(align=True)
     reset.scale_y = 0.9
     reset.operator("cozyverse.reset_prompt", text="Reset Prompt", icon="LOOP_BACK")
@@ -47,6 +49,42 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     safety.label(text="SAFE FOUNDATION MODE", icon="LOCKED")
     safety.label(text="Native editable objects")
     safety.label(text="No network or paid requests")
+    status = layout.box()
+    status.label(text="STATUS", icon="INFO")
+    status.label(text=settings.status)
+
+
+def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
+    header = layout.box()
+    header.label(text="ATMOSPHERE LAB", icon="LIGHT_SUN")
+    header.label(text="Controls update the scene immediately")
+
+    lighting = layout.box()
+    lighting.prop(settings, "atmosphere_preset", text="Preset")
+    lighting.prop(settings, "time_hour", slider=True)
+    lighting.prop(settings, "sun_intensity", slider=True)
+    lighting.prop(settings, "warmth", slider=True)
+    lighting.prop(settings, "ambient_intensity", slider=True)
+    lighting.prop(settings, "interior_intensity", slider=True)
+
+    weather = layout.box()
+    weather.label(text="WEATHER PREVIEW", icon="FORCE_WIND")
+    weather.prop(settings, "weather", expand=True)
+    rain_row = weather.row()
+    rain_row.enabled = settings.weather == "RAIN"
+    rain_row.prop(settings, "rain_amount", slider=True)
+
+    advanced = weather.column(align=True)
+    advanced.enabled = False
+    advanced.label(text="Advanced weather arrives after R1", icon="LOCKED")
+    advanced.prop(settings, "fog_amount", slider=True)
+    advanced.prop(settings, "wind_amount", slider=True)
+    advanced.prop(settings, "wetness_amount", slider=True)
+
+    actions = layout.row(align=True)
+    actions.operator("cozyverse.apply_atmosphere", text="Apply", icon="CHECKMARK")
+    actions.operator("cozyverse.reset_atmosphere", text="Reset", icon="LOOP_BACK")
+    layout.operator("cozyverse.save_atmosphere_preset", text="Save Custom Preset", icon="FILE_TICK")
 
 
 def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
@@ -102,7 +140,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.2.0 Foundation")
+    about.label(text="CozyVerse 0.3.0 Recovery R1")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
@@ -116,6 +154,8 @@ class CV_PT_Main(_CVPanel, bpy.types.Panel):
         layout.separator(factor=0.5)
         if settings.active_tab == "CREATE":
             _draw_create(layout, settings)
+        elif settings.active_tab == "ATMOSPHERE":
+            _draw_atmosphere(layout, settings)
         elif settings.active_tab == "ACTIVITY":
             _draw_activity(layout, settings)
         else:

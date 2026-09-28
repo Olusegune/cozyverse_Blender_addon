@@ -5,8 +5,8 @@
 1. Install the CozyVerse ZIP through **Edit > Preferences > Get Extensions > Install from Disk**.
 2. In the 3D View, press `N` and select the **CozyVerse** tab.
 3. Keep **Create** selected, describe a miniature world, and choose a style.
-4. Select **Generate Local World**.
-5. Open `CV_DEMO` in the Outliner and edit its meshes, light, and camera normally.
+4. Select **Build World**.
+5. Open `CV_WORLD` in the Outliner and edit its meshes, lights, materials, and camera normally.
 
 The current foundation build is deterministic and offline. It creates a demonstration from Blender primitives so you can evaluate the interaction without an account, API key, or paid service.
 
@@ -14,7 +14,13 @@ The current foundation build is deterministic and offline. It creates a demonstr
 
 ### Create
 
-Enter a concise world description, select a style, and generate the local demonstration. Running the action again refreshes CozyVerse-managed demo objects while preserving unrelated objects you added to the collection.
+Enter a concise world description, select a style, and build the local demonstration. **Edit Multiline Prompt** creates a `CV_World_Prompt` Text datablock and opens Blender's Text Editor; press `Shift+F5` to return to the 3D View. Each new build creates a numbered `CV_WORLD` collection so earlier generated worlds and manual edits remain intact.
+
+### Atmosphere
+
+Choose Golden Hour, Rainy Cafe, Moonlit, or Misty Dawn, or adjust the controls directly. Time of Day rotates the real `CV_Sun`; the sunlight, warmth, ambient, and interior controls update Blender lights and World nodes. Clear hides `CV_Rain_Preview`; Rain displays its editable rain-streak mesh. Fog, wind, and wetness are visible but disabled because R1 does not implement them.
+
+The controls update immediately. **Apply** reruns the complete mapping, **Reset** returns to Golden Hour, and **Save Custom Preset** stores versioned JSON in the current scene.
 
 ### Activity
 
@@ -45,6 +51,5 @@ Use **Clear Key** before screen sharing or handing the running Blender session t
 - No AI provider request is implemented.
 - No paid generation service is implemented.
 - Provider fields do not test remote credentials.
-- The compact native prompt field is not a full multiline editor.
-- Local asset scanning begins only after M2 is approved.
-
+- Multiline prompts use a Blender Text datablock rather than an embedded sidebar text area.
+- Local asset scanning begins only after recovery milestone R2 is approved.

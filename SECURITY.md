@@ -1,6 +1,6 @@
 # Credential and Data Safety
 
-CozyVerse Builder 0.2.0 operates offline and makes no network requests.
+CozyVerse Builder 0.3.0 operates offline and makes no network requests.
 
 API keys entered in the sidebar are runtime-only Blender properties marked `SKIP_SAVE`. They are masked in the interface and excluded from scene properties. Automated Blender testing verifies that a known secret sentinel does not appear in the saved `.blend` bytes.
 
