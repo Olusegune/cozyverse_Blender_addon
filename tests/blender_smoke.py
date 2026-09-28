@@ -17,6 +17,9 @@ addon = importlib.import_module("cozyverse_builder")
 addon.register()
 try:
     assert hasattr(bpy.types.Scene, "cozyverse")
+    assert hasattr(bpy.types.WindowManager, "cozyverse_secrets")
+    secret_sentinel = "cv-secret-must-never-enter-blend-file"
+    bpy.context.window_manager.cozyverse_secrets.api_key = secret_sentinel
     result = bpy.ops.cozyverse.create_local_demo()
     assert result == {"FINISHED"}, result
     collection = bpy.data.collections.get("CV_DEMO")
@@ -41,6 +44,7 @@ try:
     output_path = repo_root / "work" / "cozyverse_foundation_smoke.blend"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))
+    assert secret_sentinel.encode("utf-8") not in output_path.read_bytes()
     bpy.ops.wm.open_mainfile(filepath=str(output_path))
     assert bpy.data.collections.get("CV_DEMO") is not None
     assert bpy.context.scene.cozyverse.last_demo_prompt
@@ -48,8 +52,11 @@ finally:
     addon.unregister()
 
 assert not hasattr(bpy.types.Scene, "cozyverse")
+assert not hasattr(bpy.types.WindowManager, "cozyverse_secrets")
 addon.register()
 assert hasattr(bpy.types.Scene, "cozyverse")
+assert hasattr(bpy.types.WindowManager, "cozyverse_secrets")
 addon.unregister()
 assert not hasattr(bpy.types.Scene, "cozyverse")
+assert not hasattr(bpy.types.WindowManager, "cozyverse_secrets")
 print("COZYVERSE_BLENDER_SMOKE_OK")

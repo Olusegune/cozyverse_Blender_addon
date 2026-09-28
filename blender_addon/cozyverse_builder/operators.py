@@ -134,7 +134,52 @@ class CV_OT_ResetPrompt(bpy.types.Operator):
         return {"FINISHED"}
 
 
-_CLASSES = (CV_OT_CreateLocalDemo, CV_OT_ResetPrompt)
+class CV_OT_ClearApiKey(bpy.types.Operator):
+    bl_idname = "cozyverse.clear_api_key"
+    bl_label = "Clear Key"
+    bl_description = "Remove the API key from this Blender session"
+
+    def execute(self, context: bpy.types.Context):
+        context.window_manager.cozyverse_secrets.api_key = ""
+        context.scene.cozyverse.status = "Session API key cleared"
+        self.report({"INFO"}, "Session API key cleared")
+        return {"FINISHED"}
+
+
+class CV_OT_ValidateProviderSettings(bpy.types.Operator):
+    bl_idname = "cozyverse.validate_provider_settings"
+    bl_label = "Validate Configuration"
+    bl_description = "Check local provider fields without making a network request"
+
+    def execute(self, context: bpy.types.Context):
+        preferences_entry = context.preferences.addons.get(__package__)
+        preferences = preferences_entry.preferences if preferences_entry else None
+        secrets = context.window_manager.cozyverse_secrets
+        if preferences is None or preferences.provider == "NONE":
+            message = "Local-only mode is ready"
+        elif not preferences.model_name.strip():
+            message = "Add a model name before using this provider"
+            context.scene.cozyverse.status = message
+            self.report({"WARNING"}, message)
+            return {"CANCELLED"}
+        elif not secrets.api_key.strip() and not preferences.api_key_environment_variable.strip():
+            message = "Enter a session key or environment variable name"
+            context.scene.cozyverse.status = message
+            self.report({"WARNING"}, message)
+            return {"CANCELLED"}
+        else:
+            message = "Provider fields are configured; no request was sent"
+        context.scene.cozyverse.status = message
+        self.report({"INFO"}, message)
+        return {"FINISHED"}
+
+
+_CLASSES = (
+    CV_OT_CreateLocalDemo,
+    CV_OT_ResetPrompt,
+    CV_OT_ClearApiKey,
+    CV_OT_ValidateProviderSettings,
+)
 
 
 def register() -> None:

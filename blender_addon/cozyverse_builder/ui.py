@@ -1,4 +1,4 @@
-"""CozyVerse sidebar panels."""
+"""CozyVerse sidebar panels using Blender-native, theme-aware controls."""
 
 from __future__ import annotations
 
@@ -11,54 +11,118 @@ class _CVPanel:
     bl_category = "CozyVerse"
 
 
-class CV_PT_Create(_CVPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_create"
+def _addon_preferences(context: bpy.types.Context):
+    entry = context.preferences.addons.get(__package__)
+    return entry.preferences if entry else None
+
+
+def _draw_header(layout: bpy.types.UILayout, settings) -> None:
+    hero = layout.box()
+    row = hero.row(align=True)
+    row.scale_y = 1.15
+    row.label(text="COZYVERSE", icon="WORLD_DATA")
+    badge = row.row(align=True)
+    badge.alignment = "RIGHT"
+    badge.label(text="LOCAL", icon="LOCKED")
+    hero.label(text="Editable miniature worlds", icon="MESH_ICOSPHERE")
+    tabs = layout.row(align=True)
+    tabs.scale_y = 1.15
+    tabs.prop(settings, "active_tab", expand=True)
+
+
+def _draw_create(layout: bpy.types.UILayout, settings) -> None:
+    prompt = layout.box()
+    prompt.label(text="WORLD PROMPT", icon="TEXT")
+    prompt.prop(settings, "prompt", text="")
+    prompt.prop(settings, "preset", text="Style")
+
+    action = layout.column(align=True)
+    action.scale_y = 1.4
+    action.operator("cozyverse.create_local_demo", text="GENERATE LOCAL WORLD", icon="MOD_BUILD")
+    reset = action.row(align=True)
+    reset.scale_y = 0.9
+    reset.operator("cozyverse.reset_prompt", text="Reset Prompt", icon="LOOP_BACK")
+
+    safety = layout.box()
+    safety.label(text="SAFE FOUNDATION MODE", icon="LOCKED")
+    safety.label(text="Native editable objects")
+    safety.label(text="No network or paid requests")
+
+
+def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
+    state = layout.box()
+    state.label(text="SYSTEM STATUS", icon="INFO")
+    state.label(text=settings.status)
+    state.separator()
+    state.label(text="Offline engine", icon="CHECKMARK")
+    state.label(text="Blender-native output", icon="CHECKMARK")
+    state.label(text="External requests disabled", icon="LOCKED")
+    if settings.last_demo_prompt:
+        history = layout.box()
+        history.label(text="LATEST BUILD", icon="TIME")
+        history.label(text=settings.last_demo_prompt[:72])
+
+
+def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> None:
+    preferences = _addon_preferences(context)
+    secrets = context.window_manager.cozyverse_secrets
+
+    mode = layout.box()
+    mode.label(text="RUNTIME MODE", icon="OPTIONS")
+    if preferences is None:
+        mode.label(text="Local demonstration mode is enforced", icon="LOCKED")
+        return
+    mode.prop(preferences, "local_demo_only")
+
+    provider = layout.box()
+    provider.label(text="AI PROVIDER", icon="NETWORK_DRIVE")
+    provider.prop(preferences, "provider", text="")
+    provider.prop(preferences, "model_name")
+    provider.prop(preferences, "api_key_environment_variable", text="Environment")
+    key_row = provider.row(align=True)
+    key_row.prop(secrets, "api_key", text="Session Key")
+    key_row.operator("cozyverse.clear_api_key", text="", icon="X")
+    configured = bool(secrets.api_key.strip())
+    provider.label(
+        text="Session key loaded" if configured else "No session key loaded",
+        icon="KEY_HLT" if configured else "KEY_DEHLT",
+    )
+    provider.operator(
+        "cozyverse.validate_provider_settings",
+        text="Validate Locally",
+        icon="CHECKMARK",
+    )
+
+    security = layout.box()
+    security.label(text="CREDENTIAL SAFETY", icon="LOCKED")
+    security.label(text="Keys are masked and session-only")
+    security.label(text="Keys are never saved in .blend files")
+    security.label(text="Validation sends no network request")
+
+    about = layout.box()
+    about.label(text="BUILD", icon="BLENDER")
+    about.label(text=f"Blender {bpy.app.version_string}")
+    about.label(text="CozyVerse 0.2.0 Foundation")
+
+
+class CV_PT_Main(_CVPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_main"
     bl_label = "CozyVerse Builder"
 
     def draw(self, context: bpy.types.Context) -> None:
         settings = context.scene.cozyverse
         layout = self.layout
-        layout.label(text="Local demonstration mode", icon="WORLD")
-        layout.prop(settings, "prompt", text="")
-        layout.prop(settings, "preset")
-        row = layout.row(align=True)
-        row.operator("cozyverse.create_local_demo", icon="OUTLINER_COLLECTION")
-        row.operator("cozyverse.reset_prompt", text="", icon="LOOP_BACK")
-
-
-class CV_PT_Status(_CVPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_status"
-    bl_label = "Status"
-    bl_parent_id = "CV_PT_create"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        settings = context.scene.cozyverse
-        layout = self.layout
-        layout.label(text=settings.status, icon="INFO")
-        layout.label(text="Offline only - no external requests")
-        if settings.last_demo_prompt:
-            layout.label(text="The last prompt is stored in scene settings.")
-
-
-class CV_PT_Settings(_CVPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_settings"
-    bl_label = "Settings"
-    bl_parent_id = "CV_PT_create"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        layout = self.layout
-        preferences = context.preferences.addons.get(__package__)
-        if preferences is not None:
-            layout.prop(preferences.preferences, "local_demo_only")
+        _draw_header(layout, settings)
+        layout.separator(factor=0.5)
+        if settings.active_tab == "CREATE":
+            _draw_create(layout, settings)
+        elif settings.active_tab == "ACTIVITY":
+            _draw_activity(layout, settings)
         else:
-            layout.label(text="Local demonstration mode is enforced", icon="LOCKED")
-        layout.label(text=f"Blender {bpy.app.version_string}")
-        layout.label(text="CozyVerse 0.1.0")
+            _draw_settings(context, layout)
 
 
-_CLASSES = (CV_PT_Create, CV_PT_Status, CV_PT_Settings)
+_CLASSES = (CV_PT_Main,)
 
 
 def register() -> None:
@@ -69,4 +133,3 @@ def register() -> None:
 def unregister() -> None:
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
-
