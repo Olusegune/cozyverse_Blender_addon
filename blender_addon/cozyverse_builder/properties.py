@@ -73,6 +73,17 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
         ),
         default="NONE",
     )
+    custom_asset_folder: StringProperty(
+        name="Local Asset Folder",
+        description="Optional folder containing your .blend, GLB, GLTF, FBX, or OBJ models",
+        default="",
+        subtype="DIR_PATH",
+    )
+    include_blender_asset_libraries: BoolProperty(
+        name="Use Blender Asset Libraries",
+        description="Index model files from asset-library folders configured in Blender",
+        default=True,
+    )
 
     def draw(self, _context: bpy.types.Context) -> None:
         layout = self.layout
@@ -81,6 +92,8 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "model_name")
         layout.prop(self, "api_key_environment_variable")
         layout.prop(self, "generation_provider")
+        layout.prop(self, "include_blender_asset_libraries")
+        layout.prop(self, "custom_asset_folder")
         layout.label(text="API keys are entered only in the CozyVerse sidebar session.", icon="LOCKED")
         layout.label(text="Foundation build: no network or paid provider requests.", icon="INFO")
 
@@ -112,6 +125,21 @@ class CV_SessionSecrets(bpy.types.PropertyGroup):
 
 
 class CV_SceneSettings(bpy.types.PropertyGroup):
+    reference_image_path: StringProperty(
+        name="Reference Image",
+        description="Local diorama image used for an editable offline interpretation",
+        default="",
+        subtype="FILE_PATH",
+    )
+    reference_image: PointerProperty(
+        name="Reference Preview",
+        description="Loaded reference image preview",
+        type=bpy.types.Image,
+    )
+    reference_palette_json: StringProperty(name="Reference Palette", default="[]", options={"HIDDEN"})
+    reference_status: StringProperty(name="Reference Status", default="Choose a diorama reference image")
+    indexed_asset_count: StringProperty(name="Indexed Assets", default="0")
+    indexed_asset_preview: StringProperty(name="Asset Index Preview", default="", options={"HIDDEN"})
     prompt: StringProperty(
         name="World Prompt",
         description="Describe the miniature world for the local demonstration",

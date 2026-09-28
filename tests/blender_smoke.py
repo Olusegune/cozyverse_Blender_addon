@@ -107,6 +107,17 @@ try:
     assert bpy.ops.cozyverse.create_local_demo() == {"CANCELLED"}
     assert bpy.data.collections.get("CV_WORLD_003") is None
 
+    reference = bpy.data.images.new("CV_Test_Diorama_Reference", width=2, height=2)
+    reference.pixels = [0.8, 0.2, 0.1, 1.0] * 4
+    settings.reference_image = reference
+    settings.reference_image_path = "C:/local/test-reference.png"
+    assert bpy.ops.cozyverse.analyze_reference_locally() == {"FINISHED"}
+    assert settings.reference_palette_json != "[]"
+    assert bpy.ops.cozyverse.recreate_reference_mock() == {"FINISHED"}
+    reference_world = bpy.data.collections.get("CV_WORLD_003")
+    assert reference_world is not None
+    assert reference_world.get("cv_reference_mode") == "local_palette_interpretation"
+
     output_path = repo_root / "work" / "cozyverse_r1_smoke.blend"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))
@@ -116,6 +127,7 @@ try:
     bpy.ops.wm.open_mainfile(filepath=str(output_path))
     assert bpy.data.collections.get("CV_WORLD") is not None
     assert bpy.data.collections.get("CV_WORLD_002") is not None
+    assert bpy.data.collections.get("CV_WORLD_003").get("cv_reference_mode") == "local_palette_interpretation"
     assert bpy.data.objects.get("Preexisting_User_Object") is not None
     assert bpy.data.objects["CV_SariSari_Store"].location.x == edited_x
     assert bpy.context.scene.cozyverse.weather == "RAIN"

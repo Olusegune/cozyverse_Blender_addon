@@ -24,6 +24,12 @@ Choose Golden Hour, Rainy Cafe, Moonlit, or Misty Dawn, or adjust the controls d
 
 The controls update immediately. **Apply** reruns the complete mapping, **Reset** returns to Golden Hour, and **Save Custom Preset** stores versioned JSON in the current scene.
 
+### Image to World
+
+Choose a PNG, JPEG, WebP, or TIFF diorama reference. CozyVerse loads it locally and displays a preview. **Extract Color Palette** samples the image inside Blender; it does not upload the image. **Create Editable Interpretation** builds a new native Blender world using deterministic geometry and the extracted palette. This is an editable artistic interpretation—not exact single-image geometry reconstruction.
+
+The resulting world collection records the local reference path and reconstruction mode for provenance. External vision analysis remains disabled until an approved milestone adds an inspectable scene plan, privacy review, and explicit upload consent.
+
 ### Activity
 
 Review the last operation, offline-engine state, and latest build prompt. A success message means Blender completed the operator; suggestions or text alone never imply that the scene changed.
@@ -33,6 +39,8 @@ Review the last operation, offline-engine state, and latest build prompt. A succ
 Choose Local Only or configure fields for a future AI provider adapter. The foundation validates only whether the required fields exist. It does not contact a provider.
 
 The 3D Generation section provides separate masked session fields for Tripo and Meshy. Select a provider and use **Check Setup Locally** to confirm that its key is loaded. This check never contacts Tripo or Meshy. Generation submission remains disabled until a later approved adapter adds request previews, estimated cost, explicit per-job consent, polling, cancellation, download validation, and provenance.
+
+Under **Your Asset Sources**, CozyVerse can index Blender Asset Library folders already configured in Blender and one optional local folder. Supported files are `.blend`, `.glb`, `.gltf`, `.fbx`, and `.obj`. This milestone records filenames only; it does not open, execute, or automatically import those files. Asset matching and reviewed placement are the next stage.
 
 ### 3D Asset Factory
 

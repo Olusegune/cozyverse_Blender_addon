@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import bpy
+import json
 
 
 class _CVPanel:
@@ -109,6 +110,34 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     layout.operator("cozyverse.save_atmosphere_preset", text="Save Custom Preset", icon="FILE_TICK")
 
 
+def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
+    source = layout.box()
+    source.label(text="DIORAMA REFERENCE", icon="IMAGE_DATA")
+    source.label(text="Local-first • nothing is uploaded", icon="LOCKED")
+    source.operator("cozyverse.select_reference_image", text="Choose Reference Image", icon="FILE_IMAGE")
+    if settings.reference_image is not None:
+        source.template_ID_preview(settings, "reference_image", rows=4, cols=5, hide_buttons=True)
+        source.label(text=f"{settings.reference_image.size[0]} × {settings.reference_image.size[1]} pixels")
+    analysis = layout.box()
+    analysis.label(text="LOCAL INTERPRETATION", icon="EYEDROPPER")
+    analysis.operator("cozyverse.analyze_reference_locally", text="Extract Color Palette", icon="COLOR")
+    try:
+        palette = json.loads(settings.reference_palette_json)
+    except (TypeError, ValueError):
+        palette = []
+    if palette:
+        analysis.label(text="Palette: " + "  ".join("#" + "".join(f"{round(channel * 255):02X}" for channel in color) for color in palette))
+    analysis.label(text=settings.reference_status, icon="INFO")
+    build = layout.column(align=True)
+    build.enabled = settings.reference_image is not None
+    build.scale_y = 1.5
+    build.operator("cozyverse.recreate_reference_mock", text="CREATE EDITABLE INTERPRETATION", icon="MOD_BUILD")
+    note = layout.box()
+    note.label(text="Current scope", icon="INFO")
+    note.label(text="Uses image palette + deterministic geometry")
+    note.label(text="Exact AI vision reconstruction is not enabled")
+
+
 def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
     state = layout.box()
     state.label(text="SYSTEM STATUS", icon="INFO")
@@ -188,6 +217,13 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     note.enabled = False
     note.label(text="Generation requests are not enabled in R1", icon="LOCKED")
     note.label(text="Future jobs require cost and consent review")
+    assets = layout.box()
+    assets.label(text="YOUR ASSET SOURCES", icon="ASSET_MANAGER")
+    assets.prop(preferences, "include_blender_asset_libraries")
+    assets.prop(preferences, "custom_asset_folder")
+    assets.operator("cozyverse.index_local_assets", text="Index Local Assets", icon="VIEWZOOM")
+    assets.label(text=f"Supported model files indexed: {context.scene.cozyverse.indexed_asset_count}", icon="CHECKMARK")
+    assets.label(text="Indexing reads filenames only; importing comes next", icon="LOCKED")
     security = layout.box()
     security.label(text="CREDENTIAL SAFETY", icon="LOCKED")
     security.label(text="Keys are masked and session-only")
@@ -196,7 +232,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.6.0 Interface Refresh")
+    about.label(text="CozyVerse 0.7.0 Image-to-World Foundation")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
@@ -226,6 +262,15 @@ class CV_PT_Atmosphere(_CVChildPanel, bpy.types.Panel):
 
     def draw(self, context: bpy.types.Context) -> None:
         _draw_atmosphere(self.layout, context.scene.cozyverse)
+
+
+class CV_PT_ImageToWorld(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_image_to_world"
+    bl_label = "Image to World"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_image_to_world(self.layout, context.scene.cozyverse)
 
 
 class CV_PT_Generate(_CVChildPanel, bpy.types.Panel):
@@ -274,7 +319,7 @@ class CV_TEXT_PT_Prompt(bpy.types.Panel):
         layout.label(text="Then choose Build Editable World.", icon="INFO")
 
 
-_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_Atmosphere, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
+_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_ImageToWorld, CV_PT_Atmosphere, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
 
 
 def register() -> None:

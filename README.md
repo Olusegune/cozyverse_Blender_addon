@@ -1,10 +1,12 @@
 # CozyVerse Builder
 
-CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.6.0 adds a compact, collapsible interface and bounded prompt composer while keeping live Tripo and Meshy submissions disabled.
+CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.7.0 adds a local-first Image-to-World foundation and indexes user-selected model folders and Blender Asset Library locations while keeping live AI submissions disabled.
 
 The foundation build provides:
 
 - a native 3D View sidebar under the `CozyVerse` tab;
+- a reference-image preview, local palette extraction, and editable offline interpretation;
+- safe filename indexing for Blender Asset Libraries and an optional local model folder;
 - visible Create, Atmosphere, Activity, and Settings workspaces;
 - scene-persistent prompt, preset, status, and last-run settings;
 - a full-area multiline prompt editor with wrapped sidebar preview;

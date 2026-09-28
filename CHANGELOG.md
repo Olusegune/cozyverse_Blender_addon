@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+- Added an Image-to-World sidebar with local image selection and thumbnail preview.
+- Added deterministic offline palette extraction and editable reference-based reconstruction.
+- Added source provenance properties to reference-generated world collections.
+- Added safe indexing for Blender Asset Library folders and an optional user-selected model folder.
+- Added pure and Blender integration tests for the new local reference workflow.
+- Kept image upload, AI vision analysis, automatic asset importing, and paid generation disabled.
+
 ## 0.6.0
 
 - Replaced the tabbed sidebar with compact, collapsible workflow panels.

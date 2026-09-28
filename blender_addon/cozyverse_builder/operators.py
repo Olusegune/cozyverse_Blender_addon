@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import bpy
+import json
 from bpy.props import EnumProperty, StringProperty
+from bpy_extras.io_utils import ImportHelper
 
 from .atmosphere import apply_atmosphere
 from .core.atmosphere_spec import AtmosphereValues, PRESETS, serialize_preset
 from .core.demo_spec import DEFAULT_PROMPT
 from .world_builder import build_offline_world
 from .providers.contracts import build_plan
+from .core.reference_spec import dominant_palette, scan_asset_files, validate_reference_path
 
 
 def _prompt_from_settings(settings) -> str:
@@ -186,6 +189,106 @@ class CV_OT_PastePrompt(bpy.types.Operator):
         context.scene.cozyverse.prompt = value[:4000]
         context.scene.cozyverse.prompt_text = None
         context.scene.cozyverse.status = "Clipboard prompt ready"
+        return {"FINISHED"}
+
+
+class CV_OT_SelectReferenceImage(bpy.types.Operator, ImportHelper):
+    bl_idname = "cozyverse.select_reference_image"
+    bl_label = "Choose Diorama Image"
+    bl_description = "Choose a local reference image; nothing is uploaded"
+
+    filter_glob: StringProperty(default="*.png;*.jpg;*.jpeg;*.webp;*.tif;*.tiff", options={"HIDDEN"})
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        try:
+            path = validate_reference_path(self.filepath)
+            image = bpy.data.images.load(str(path), check_existing=True)
+        except (ValueError, RuntimeError) as exc:
+            settings.reference_status = str(exc)
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        settings.reference_image_path = str(path)
+        settings.reference_image = image
+        settings.reference_palette_json = "[]"
+        settings.reference_status = f"Loaded {image.name} ({image.size[0]} × {image.size[1]})"
+        return {"FINISHED"}
+
+
+class CV_OT_AnalyzeReferenceLocally(bpy.types.Operator):
+    bl_idname = "cozyverse.analyze_reference_locally"
+    bl_label = "Analyze Locally"
+    bl_description = "Extract a color palette from the image locally without uploading it"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        image = settings.reference_image
+        if image is None:
+            settings.reference_status = "Choose a reference image first"
+            return {"CANCELLED"}
+        try:
+            palette = dominant_palette(list(image.pixels), image.channels, 5)
+        except (RuntimeError, ValueError) as exc:
+            settings.reference_status = f"Image analysis failed: {exc}"
+            return {"CANCELLED"}
+        if not palette:
+            settings.reference_status = "The image did not contain readable color pixels"
+            return {"CANCELLED"}
+        settings.reference_palette_json = json.dumps(palette)
+        settings.reference_status = f"Local palette ready: {len(palette)} colors; image was not uploaded"
+        return {"FINISHED"}
+
+
+class CV_OT_IndexLocalAssets(bpy.types.Operator):
+    bl_idname = "cozyverse.index_local_assets"
+    bl_label = "Index Local Assets"
+    bl_description = "Scan configured local folders for supported model files without opening them"
+
+    def execute(self, context: bpy.types.Context):
+        entry = context.preferences.addons.get(__package__)
+        preferences = entry.preferences if entry else None
+        if preferences is None:
+            return {"CANCELLED"}
+        roots = []
+        if preferences.custom_asset_folder:
+            roots.append(bpy.path.abspath(preferences.custom_asset_folder))
+        if preferences.include_blender_asset_libraries:
+            roots.extend(library.path for library in context.preferences.filepaths.asset_libraries)
+        paths = scan_asset_files(roots)
+        settings = context.scene.cozyverse
+        settings.indexed_asset_count = str(len(paths))
+        settings.indexed_asset_preview = json.dumps(paths[:100])
+        settings.reference_status = f"Indexed {len(paths)} supported local model file(s); none were opened"
+        return {"FINISHED"}
+
+
+class CV_OT_RecreateReferenceMock(bpy.types.Operator):
+    bl_idname = "cozyverse.recreate_reference_mock"
+    bl_label = "Create Editable Interpretation"
+    bl_description = "Build an offline editable approximation using the extracted palette"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if settings.reference_image is None:
+            settings.reference_status = "Choose a reference image first"
+            return {"CANCELLED"}
+        if settings.reference_palette_json == "[]":
+            result = bpy.ops.cozyverse.analyze_reference_locally()
+            if result != {"FINISHED"}:
+                return result
+        prompt = f"Editable local interpretation of the diorama reference {settings.reference_image.name}"
+        root = build_offline_world(context.scene, settings, prompt)
+        palette = json.loads(settings.reference_palette_json)
+        material_names = ("CV_Mat_Earth", "CV_Mat_Shop", "CV_Mat_Roof", "CV_Mat_Trim", "CV_Mat_Leaves")
+        for material_name, color in zip(material_names, palette):
+            material = bpy.data.materials.get(material_name)
+            if material is not None:
+                material.diffuse_color = (*color, 1.0)
+        root["cv_reference_image"] = settings.reference_image_path
+        root["cv_reference_mode"] = "local_palette_interpretation"
+        root["cv_indexed_asset_count"] = int(settings.indexed_asset_count or 0)
+        settings.reference_status = f"Editable interpretation ready: {root.name}"
         return {"FINISHED"}
 
 
@@ -439,6 +542,10 @@ _CLASSES = (
     CV_OT_PromptComposer,
     CV_OT_ApplyPromptTemplate,
     CV_OT_PastePrompt,
+    CV_OT_SelectReferenceImage,
+    CV_OT_AnalyzeReferenceLocally,
+    CV_OT_IndexLocalAssets,
+    CV_OT_RecreateReferenceMock,
     CV_OT_EditMultilinePrompt,
     CV_OT_UseMultilinePrompt,
     CV_OT_ResetPrompt,
