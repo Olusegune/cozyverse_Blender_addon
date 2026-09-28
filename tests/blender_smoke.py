@@ -27,6 +27,9 @@ try:
     assert composed.startswith("Create a tiny harbor") and composed.endswith(".")
     assert bpy.ops.cozyverse.apply_prompt_template(template="CAFE") == {"FINISHED"}
     assert "cafe" in settings.prompt.lower()
+    assert bpy.ops.cozyverse.apply_prompt_template(template="RETRO_SCIFI") == {"FINISHED"}
+    assert settings.preset == "RETRO_SCIFI"
+    assert "rounded modules" in settings.prompt
     # Headless Blender does not expose a system clipboard; verify its safe empty-state path.
     bpy.context.window_manager.clipboard = ""
     assert bpy.ops.cozyverse.paste_prompt() == {"CANCELLED"}
@@ -54,6 +57,8 @@ try:
     for object_name in ("CV_Diorama_Base", "CV_Road", "CV_SariSari_Store", "CV_Sun", "CV_Camera", "CV_Rain_Preview"):
         assert bpy.data.objects.get(object_name) is not None, object_name
     assert bpy.context.scene.camera is bpy.data.objects["CV_Camera"]
+    assert world.get("cv_style_label") == "Retro Sci-Fi"
+    assert "space" in world.get("cv_asset_keywords")
 
     sun = bpy.data.objects["CV_Sun"]
     settings.time_hour = 12.0

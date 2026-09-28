@@ -13,6 +13,7 @@ from .core.demo_spec import DEFAULT_PROMPT
 from .world_builder import build_offline_world
 from .providers.contracts import build_plan
 from .core.reference_spec import dominant_palette, scan_asset_files, validate_reference_path
+from .core.style_spec import STYLE_PRESETS, style_items, styled_prompt
 
 
 def _prompt_from_settings(settings) -> str:
@@ -96,6 +97,7 @@ class CV_OT_PromptComposer(bpy.types.Operator):
     mood: StringProperty(name="Mood and Time")
     details: StringProperty(name="Must Include")
     avoid: StringProperty(name="Avoid")
+    style: EnumProperty(name="Visual Style", items=style_items())
 
     def invoke(self, context: bpy.types.Context, _event):
         settings = context.scene.cozyverse
@@ -104,6 +106,7 @@ class CV_OT_PromptComposer(bpy.types.Operator):
         self.mood = settings.prompt_mood
         self.details = settings.prompt_details
         self.avoid = settings.prompt_avoid
+        self.style = settings.preset
         try:
             return context.window_manager.invoke_props_dialog(self, width=620, confirm_text="Apply Prompt")
         except TypeError:
@@ -120,6 +123,12 @@ class CV_OT_PromptComposer(bpy.types.Operator):
         fields.prop(self, "mood")
         fields.prop(self, "details")
         fields.prop(self, "avoid")
+        style_box = layout.box()
+        style_box.label(text="STYLE STUDIO", icon="BRUSH_DATA")
+        style_box.prop(self, "style")
+        preset = STYLE_PRESETS.get(self.style)
+        if preset:
+            style_box.label(text=preset.description)
 
     def execute(self, context: bpy.types.Context):
         settings = context.scene.cozyverse
@@ -132,7 +141,8 @@ class CV_OT_PromptComposer(bpy.types.Operator):
         settings.prompt_mood = self.mood
         settings.prompt_details = self.details
         settings.prompt_avoid = self.avoid
-        settings.prompt = prompt[:4000]
+        settings.preset = self.style
+        settings.prompt = styled_prompt(prompt, self.style)[:4000]
         settings.prompt_text = None
         settings.status = "Prompt composed and ready to build"
         return {"FINISHED"}
@@ -151,6 +161,7 @@ class CV_OT_ApplyPromptTemplate(bpy.types.Operator):
             ("NATURE", "Nature", "Miniature natural landscape"),
             ("FANTASY", "Fantasy", "Whimsical fantasy settlement"),
             ("HISTORICAL", "Historical", "Period-inspired streetscape"),
+            ("RETRO_SCIFI", "Retro Sci-Fi", "Optimistic analog-future outpost"),
         )
     )
 
@@ -162,6 +173,7 @@ class CV_OT_ApplyPromptTemplate(bpy.types.Operator):
             "NATURE": ("a miniature natural landscape", "a winding stream and hero tree", "soft morning light", "rocks, layered vegetation and a small path", "buildings and urban clutter"),
             "FANTASY": ("a whimsical fantasy settlement", "a tiny wizard workshop", "magical twilight", "lanterns, unusual plants and curved architecture", "realistic modern objects"),
             "HISTORICAL": ("a period-inspired miniature streetscape", "a traditional market building", "soft late-afternoon light", "era-appropriate stalls, paths and vegetation", "modern signage and vehicles"),
+            "RETRO_SCIFI": ("a miniature lunar service station", "a rounded modular workshop", "cinematic alien dusk", "antenna arrays, a landing pad, maintenance rover and illuminated signs", "modern cars and cyberpunk neon clutter"),
         }
         settings = context.scene.cozyverse
         setting, subject, mood, details, avoid = templates[self.template]
@@ -170,7 +182,10 @@ class CV_OT_ApplyPromptTemplate(bpy.types.Operator):
         settings.prompt_mood = mood
         settings.prompt_details = details
         settings.prompt_avoid = avoid
-        settings.prompt = _compose_prompt(setting, subject, mood, details, avoid)
+        style_map = {"FANTASY": "COZY_FANTASY", "NATURE": "SOLARPUNK", "RETRO_SCIFI": "RETRO_SCIFI"}
+        if self.template in style_map:
+            settings.preset = style_map[self.template]
+        settings.prompt = styled_prompt(_compose_prompt(setting, subject, mood, details, avoid), settings.preset)
         settings.prompt_text = None
         settings.status = f"{self.template.title()} prompt template applied"
         return {"FINISHED"}

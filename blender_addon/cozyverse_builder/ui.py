@@ -5,6 +5,8 @@ from __future__ import annotations
 import bpy
 import json
 
+from .core.style_spec import STYLE_PRESETS
+
 
 class _CVPanel:
     bl_space_type = "VIEW_3D"
@@ -74,7 +76,17 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     for name, label, icon in (("NATURE", "Nature", "WORLD"), ("FANTASY", "Fantasy", "SOLO_ON"), ("HISTORICAL", "History", "TIME")):
         operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
         operator.template = name
-    prompt.prop(settings, "preset", text="Style")
+    retro = templates.row(align=True)
+    retro.scale_y = 1.2
+    operator = retro.operator("cozyverse.apply_prompt_template", text="Retro Sci-Fi", icon="ORIENTATION_GIMBAL")
+    operator.template = "RETRO_SCIFI"
+    style = prompt.box()
+    style.label(text="STYLE STUDIO", icon="BRUSH_DATA")
+    style.prop(settings, "preset", text="")
+    selected_style = STYLE_PRESETS.get(settings.preset)
+    if selected_style:
+        style.label(text=selected_style.description)
+        style.label(text="Asset tags: " + ", ".join(selected_style.keywords), icon="TAG")
     action = layout.column(align=True)
     action.scale_y = 1.55
     action.operator("cozyverse.create_local_demo", text="BUILD EDITABLE WORLD", icon="MOD_BUILD")
@@ -232,7 +244,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.7.0 Image-to-World Foundation")
+    about.label(text="CozyVerse 0.8.0 Style Studio")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):

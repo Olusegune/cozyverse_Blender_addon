@@ -18,6 +18,14 @@ Choose one of six quick-start templates, paste a prompt from the clipboard, or s
 
 For unusually long free-form prompts, **Open Full Text Editor** creates a `CV_World_Prompt` Text datablock and switches the current area to Blender's Text Editor. Select **Use Prompt and Return**, or press **Shift+F5** to return to the 3D View. This is deliberately labeled as an advanced path.
 
+#### Style Studio
+
+Choose a visual style before building, or choose it directly inside **Compose Detailed Prompt**. Available styles are Cozy Village, Retro Sci-Fi, Cozy Fantasy, Solarpunk, Cyberpunk, Storybook, Low-Poly, Clay Miniature, Paper Craft, Art Deco, Gothic, and Tropical.
+
+Styles affect the generated prompt, negative constraints, procedural material palette, metallic treatment, collection metadata, and asset-search keywords. For example, **Retro Sci-Fi** requests rounded modules, antennae, enamel panels, and optimistic analog technology while avoiding modern minimalism and excessive cyberpunk clutter. The generated world records `cv_style_label` and `cv_asset_keywords`, making the style available to the upcoming asset matcher.
+
+The **Retro Sci-Fi** quick-start button fills the world-description fields and selects the matching style automatically. All generated prompt text remains editable before building.
+
 ### Atmosphere
 
 Choose Golden Hour, Rainy Cafe, Moonlit, or Misty Dawn, or adjust the controls directly. Time of Day rotates the real `CV_Sun`; the sunlight, warmth, ambient, and interior controls update Blender lights and World nodes. Clear hides `CV_Rain_Preview`; Rain displays its editable rain-streak mesh. Fog, wind, and wetness are visible but disabled because R1 does not implement them.

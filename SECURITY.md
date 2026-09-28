@@ -1,6 +1,6 @@
 # Credential and Data Safety
 
-CozyVerse Builder 0.7.0 keeps live provider submission disabled. Reference images remain local, and asset indexing reads supported filenames without opening model files. Its current generation workflow creates request previews and mock assets without making a network request.
+CozyVerse Builder 0.8.0 keeps live provider submission disabled. Reference images remain local, and asset indexing reads supported filenames without opening model files. Style Studio is deterministic local configuration. Its current generation workflow creates request previews and mock assets without making a network request.
 
 Director, Tripo, and Meshy API keys entered in the sidebar are runtime-only Blender properties marked `SKIP_SAVE`. They are masked in the interface and excluded from scene properties. Automated Blender testing verifies that known secret sentinels do not appear in the saved `.blend` bytes.
 

@@ -9,6 +9,7 @@ import bpy
 from mathutils import Vector
 
 from .atmosphere import RAIN_NAME, SUN_NAME, apply_atmosphere
+from .core.style_spec import STYLE_PRESETS
 
 
 WORLD_ROOT = "CV_WORLD"
@@ -141,6 +142,9 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str) -> bpy.ty
     root["cv_schema_version"] = "2.0"
     root["cv_prompt"] = prompt
     root["cv_preset"] = settings.preset
+    style = STYLE_PRESETS.get(settings.preset, STYLE_PRESETS["COZY_VILLAGE"])
+    root["cv_style_label"] = style.label
+    root["cv_asset_keywords"] = ", ".join(style.keywords)
 
     base_collection = _new_collection("CV_BASE", root)
     architecture = _new_collection("CV_ARCHITECTURE", root)
@@ -151,13 +155,14 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str) -> bpy.ty
     atmosphere_collection = _new_collection("CV_ATMOSPHERE", root)
     rain_collection = _new_collection("CV_RAIN", atmosphere_collection)
 
-    earth = _material("CV_Mat_Earth", (0.12, 0.20, 0.12, 1.0))
+    earth_color, shop_color, roof_color, trim_color, leaf_color = style.palette
+    earth = _material("CV_Mat_Earth", earth_color)
     road = _material("CV_Mat_Road", (0.055, 0.065, 0.08, 1.0))
-    plaster = _material("CV_Mat_Shop", (0.15, 0.52, 0.62, 1.0))
-    roof = _material("CV_Mat_Roof", (0.62, 0.11, 0.08, 1.0), 0.15)
+    plaster = _material("CV_Mat_Shop", shop_color, style.metallic * 0.25)
+    roof = _material("CV_Mat_Roof", roof_color, max(0.15, style.metallic))
     wood = _material("CV_Mat_Wood", (0.28, 0.10, 0.035, 1.0))
-    trim = _material("CV_Mat_Trim", (0.95, 0.55, 0.08, 1.0))
-    green = _material("CV_Mat_Leaves", (0.08, 0.42, 0.16, 1.0))
+    trim = _material("CV_Mat_Trim", trim_color, style.metallic)
+    green = _material("CV_Mat_Leaves", leaf_color)
     glass = _material("CV_Mat_Window", (0.08, 0.28, 0.42, 1.0), 0.25)
     rain_material = _material("CV_Mat_Rain", (0.08, 0.48, 1.0, 1.0), 0.1)
 

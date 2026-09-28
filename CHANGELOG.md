@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+- Added Style Studio with twelve validated visual-style presets.
+- Added Retro Sci-Fi quick start and style-aware prompt generation.
+- Made styles affect procedural material palettes and metallic treatment—not only prompt wording.
+- Stored style labels and asset-search keywords on generated world collections.
+- Added unit and Blender integration coverage for style prompts, palettes, metadata, and fallback behavior.
+
 ## 0.7.0
 
 - Added an Image-to-World sidebar with local image selection and thumbnail preview.

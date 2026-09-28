@@ -6,6 +6,7 @@ import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, PointerProperty, StringProperty
 
 from .core.demo_spec import DEFAULT_PROMPT
+from .core.style_spec import style_items
 
 
 def _update_atmosphere(self, context: bpy.types.Context) -> None:
@@ -157,12 +158,9 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     prompt_details: StringProperty(name="Must Include", default="a road, tropical plants, warm shop lights", maxlen=1000)
     prompt_avoid: StringProperty(name="Avoid", default="photorealism, excessive clutter", maxlen=500)
     preset: EnumProperty(
-        name="Preset",
-        items=(
-            ("COZY_VILLAGE", "Cozy Village", "Warm miniature village demonstration"),
-            ("RAINY_CITY", "Rainy City", "Foundation placeholder for a rainy city prompt"),
-            ("NATURE", "Nature", "Foundation placeholder for a nature prompt"),
-        ),
+        name="Visual Style",
+        description="Shared style direction for prompts, materials, and future asset matching",
+        items=style_items(),
         default="COZY_VILLAGE",
     )
     status: StringProperty(name="Status", default="Ready for a local demonstration")
