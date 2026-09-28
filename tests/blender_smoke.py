@@ -26,7 +26,13 @@ try:
 
     secret_sentinel = "cv-secret-must-never-enter-blend-file"
     bpy.context.window_manager.cozyverse_secrets.api_key = secret_sentinel
+    bpy.context.window_manager.cozyverse_secrets.tripo_api_key = secret_sentinel + "-tripo"
+    bpy.context.window_manager.cozyverse_secrets.meshy_api_key = secret_sentinel + "-meshy"
     settings.prompt = "Create a tiny Manila sari-sari store with a road, tropical plants and warm sunset."
+    assert bpy.ops.cozyverse.edit_multiline_prompt() == {"FINISHED"}
+    settings.prompt_text.write("\nInclude a welcoming storefront and evening atmosphere.")
+    assert bpy.ops.cozyverse.use_multiline_prompt() == {"FINISHED"}
+    assert "\n" in settings.prompt
     result = bpy.ops.cozyverse.create_local_demo()
     assert result == {"FINISHED"}, result
 
@@ -84,6 +90,8 @@ try:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))
     assert secret_sentinel.encode("utf-8") not in output_path.read_bytes()
+    assert (secret_sentinel + "-tripo").encode("utf-8") not in output_path.read_bytes()
+    assert (secret_sentinel + "-meshy").encode("utf-8") not in output_path.read_bytes()
     bpy.ops.wm.open_mainfile(filepath=str(output_path))
     assert bpy.data.collections.get("CV_WORLD") is not None
     assert bpy.data.collections.get("CV_WORLD_002") is not None
@@ -103,4 +111,3 @@ addon.unregister()
 assert not hasattr(bpy.types.Scene, "cozyverse")
 assert not hasattr(bpy.types.WindowManager, "cozyverse_secrets")
 print("COZYVERSE_R1_BLENDER_SMOKE_OK")
-

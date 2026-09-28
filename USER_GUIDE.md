@@ -14,7 +14,7 @@ The current foundation build is deterministic and offline. It creates a demonstr
 
 ### Create
 
-Enter a concise world description, select a style, and build the local demonstration. **Edit Multiline Prompt** creates a `CV_World_Prompt` Text datablock and opens Blender's Text Editor; press `Shift+F5` to return to the 3D View. Each new build creates a numbered `CV_WORLD` collection so earlier generated worlds and manual edits remain intact.
+Enter a concise world description, select a style, and build the local demonstration. **Open Large Prompt Editor** creates a `CV_World_Prompt` Text datablock and uses Blender's full Text Editor area for genuine multiline writing. Select **Use Prompt and Return** in the Text Editor's CozyVerse sidebar, then select **Build World**. Each new build creates a numbered `CV_WORLD` collection so earlier generated worlds and manual edits remain intact.
 
 ### Atmosphere
 
@@ -29,6 +29,8 @@ Review the last operation, offline-engine state, and latest build prompt. A succ
 ### Settings
 
 Choose Local Only or configure fields for a future AI provider adapter. The foundation validates only whether the required fields exist. It does not contact a provider.
+
+The 3D Generation section provides separate masked session fields for Tripo and Meshy. Select a provider and use **Check Setup Locally** to confirm that its key is loaded. This check never contacts Tripo or Meshy. Generation submission remains disabled until a later approved adapter adds request previews, estimated cost, explicit per-job consent, polling, cancellation, download validation, and provenance.
 
 ## API key safety
 

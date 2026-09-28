@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Added a full-area multiline prompt workflow using Blender's Text Editor and a guided return action.
+- Added a wrapped prompt preview, numbered creation flow, stronger native iconography, and clearer action hierarchy.
+- Added separate masked session-only Tripo and Meshy credential fields and local setup validation.
+- Kept all 3D provider requests disabled until cost preview and per-job consent are implemented.
+
 ## 0.3.0
 
 - Added a visible Build World workflow with optional multiline Blender Text prompt editing.

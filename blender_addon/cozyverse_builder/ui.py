@@ -11,6 +11,28 @@ class _CVPanel:
     bl_category = "CozyVerse"
 
 
+def _wrapped_lines(value: str, width: int = 34, limit: int = 5) -> list[str]:
+    words = value.replace("\n", " ").split()
+    if not words:
+        return ["No world description yet"]
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > width:
+            lines.append(current)
+            current = word
+            if len(lines) == limit:
+                break
+        else:
+            current = candidate
+    if len(lines) < limit and current:
+        lines.append(current)
+    if len(lines) == limit and len(" ".join(words)) > len(" ".join(lines)):
+        lines[-1] = lines[-1].rstrip(".") + "..."
+    return lines
+
+
 def _addon_preferences(context: bpy.types.Context):
     entry = context.preferences.addons.get(__package__)
     return entry.preferences if entry else None
@@ -32,13 +54,22 @@ def _draw_header(layout: bpy.types.UILayout, settings) -> None:
 
 def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     prompt = layout.box()
-    prompt.label(text="DESCRIBE YOUR WORLD", icon="TEXT")
-    prompt.prop(settings, "prompt", text="")
-    prompt.prop(settings, "prompt_text", text="Long Prompt")
-    prompt.operator("cozyverse.edit_multiline_prompt", text="Edit Multiline Prompt", icon="TEXT")
+    title = prompt.row(align=True)
+    title.label(text="1  DESCRIBE YOUR WORLD", icon="TEXT")
+    prompt.prop(settings, "prompt", text="Quick Prompt")
+    preview = prompt.box()
+    preview.label(text="PROMPT PREVIEW")
+    prompt_value = settings.prompt_text.as_string() if settings.prompt_text else settings.prompt
+    for line in _wrapped_lines(prompt_value):
+        preview.label(text=line)
+    editor = prompt.column(align=True)
+    editor.scale_y = 1.25
+    editor.operator("cozyverse.edit_multiline_prompt", text="OPEN LARGE PROMPT EDITOR", icon="TEXT")
+    prompt.prop(settings, "prompt_text", text="Prompt Document")
     prompt.prop(settings, "preset", text="Style")
 
     action = layout.column(align=True)
+    action.label(text="2  BUILD AN EDITABLE WORLD", icon="OUTLINER_COLLECTION")
     action.scale_y = 1.4
     action.operator("cozyverse.create_local_demo", text="BUILD WORLD", icon="MOD_BUILD")
     reset = action.row(align=True)
@@ -113,7 +144,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     mode.prop(preferences, "local_demo_only")
 
     provider = layout.box()
-    provider.label(text="AI PROVIDER", icon="NETWORK_DRIVE")
+    provider.label(text="DIRECTOR AI", icon="NETWORK_DRIVE")
     provider.prop(preferences, "provider", text="")
     provider.prop(preferences, "model_name")
     provider.prop(preferences, "api_key_environment_variable", text="Environment")
@@ -131,6 +162,32 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
         icon="CHECKMARK",
     )
 
+    generation = layout.box()
+    generation.label(text="3D GENERATION", icon="MESH_ICOSPHERE")
+    generation.prop(preferences, "generation_provider", text="")
+
+    tripo = generation.box()
+    tripo_header = tripo.row(align=True)
+    tripo_header.label(text="TRIPO", icon="KEY_HLT" if secrets.tripo_api_key else "KEY_DEHLT")
+    tripo_key = tripo.row(align=True)
+    tripo_key.prop(secrets, "tripo_api_key", text="Session Key")
+    clear_tripo = tripo_key.operator("cozyverse.clear_generation_key", text="", icon="X")
+    clear_tripo.provider = "TRIPO"
+
+    meshy = generation.box()
+    meshy_header = meshy.row(align=True)
+    meshy_header.label(text="MESHY", icon="KEY_HLT" if secrets.meshy_api_key else "KEY_DEHLT")
+    meshy_key = meshy.row(align=True)
+    meshy_key.prop(secrets, "meshy_api_key", text="Session Key")
+    clear_meshy = meshy_key.operator("cozyverse.clear_generation_key", text="", icon="X")
+    clear_meshy.provider = "MESHY"
+
+    generation.operator("cozyverse.validate_generation_settings", text="Check Setup Locally", icon="CHECKMARK")
+    note = generation.column(align=True)
+    note.enabled = False
+    note.label(text="Generation requests are not enabled in R1", icon="LOCKED")
+    note.label(text="Each future job will require cost and consent review")
+
     security = layout.box()
     security.label(text="CREDENTIAL SAFETY", icon="LOCKED")
     security.label(text="Keys are masked and session-only")
@@ -140,7 +197,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.3.0 Recovery R1")
+    about.label(text="CozyVerse 0.4.0 Recovery R1")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
@@ -162,7 +219,25 @@ class CV_PT_Main(_CVPanel, bpy.types.Panel):
             _draw_settings(context, layout)
 
 
-_CLASSES = (CV_PT_Main,)
+class CV_TEXT_PT_Prompt(bpy.types.Panel):
+    bl_idname = "CV_TEXT_PT_prompt"
+    bl_label = "CozyVerse Prompt"
+    bl_space_type = "TEXT_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "CozyVerse"
+
+    def draw(self, context: bpy.types.Context) -> None:
+        layout = self.layout
+        layout.label(text="LARGE PROMPT EDITOR", icon="TEXT")
+        layout.label(text="Write naturally across multiple lines.")
+        layout.separator()
+        column = layout.column(align=True)
+        column.scale_y = 1.4
+        column.operator("cozyverse.use_multiline_prompt", text="USE PROMPT AND RETURN", icon="CHECKMARK")
+        layout.label(text="Then select Build World in CozyVerse.", icon="INFO")
+
+
+_CLASSES = (CV_PT_Main, CV_TEXT_PT_Prompt)
 
 
 def register() -> None:

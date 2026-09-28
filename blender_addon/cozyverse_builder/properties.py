@@ -63,6 +63,16 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
         default="",
         maxlen=128,
     )
+    generation_provider: EnumProperty(
+        name="3D Generation Provider",
+        description="Provider to configure for a future explicitly approved generation adapter",
+        items=(
+            ("NONE", "Disabled", "Disable external 3D generation"),
+            ("TRIPO", "Tripo", "Configure Tripo credentials without sending a request"),
+            ("MESHY", "Meshy", "Configure Meshy credentials without sending a request"),
+        ),
+        default="NONE",
+    )
 
     def draw(self, _context: bpy.types.Context) -> None:
         layout = self.layout
@@ -70,6 +80,7 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "provider")
         layout.prop(self, "model_name")
         layout.prop(self, "api_key_environment_variable")
+        layout.prop(self, "generation_provider")
         layout.label(text="API keys are entered only in the CozyVerse sidebar session.", icon="LOCKED")
         layout.label(text="Foundation build: no network or paid provider requests.", icon="INFO")
 
@@ -80,6 +91,20 @@ class CV_SessionSecrets(bpy.types.PropertyGroup):
     api_key: StringProperty(
         name="API Key",
         description="Session-only credential; never stored in the blend file or logs",
+        default="",
+        subtype="PASSWORD",
+        options={"SKIP_SAVE"},
+    )
+    tripo_api_key: StringProperty(
+        name="Tripo API Key",
+        description="Session-only Tripo credential; never stored in the blend file or logs",
+        default="",
+        subtype="PASSWORD",
+        options={"SKIP_SAVE"},
+    )
+    meshy_api_key: StringProperty(
+        name="Meshy API Key",
+        description="Session-only Meshy credential; never stored in the blend file or logs",
         default="",
         subtype="PASSWORD",
         options={"SKIP_SAVE"},

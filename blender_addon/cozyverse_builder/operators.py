@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import bpy
+from bpy.props import EnumProperty
 
 from .atmosphere import apply_atmosphere
 from .core.atmosphere_spec import AtmosphereValues, PRESETS, serialize_preset
@@ -63,6 +64,28 @@ class CV_OT_EditMultilinePrompt(bpy.types.Operator):
         context.space_data.text = text
         settings.status = "Editing CV_World_Prompt; press Shift+F5 to return to 3D View"
         self.report({"INFO"}, settings.status)
+        return {"FINISHED"}
+
+
+class CV_OT_UseMultilinePrompt(bpy.types.Operator):
+    bl_idname = "cozyverse.use_multiline_prompt"
+    bl_label = "Use Prompt and Return"
+    bl_description = "Use the active multiline prompt and return this area to the 3D View"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        active_text = getattr(context.space_data, "text", None) if context.space_data is not None else None
+        text = active_text or settings.prompt_text
+        if text is None or not text.as_string().strip():
+            settings.status = "The multiline prompt is empty"
+            self.report({"WARNING"}, settings.status)
+            return {"CANCELLED"}
+        settings.prompt_text = text
+        settings.prompt = text.as_string().strip()[:4000]
+        settings.status = "Multiline prompt ready"
+        if context.area is not None:
+            context.area.type = "VIEW_3D"
+        self.report({"INFO"}, "Multiline prompt ready; select Build World")
         return {"FINISHED"}
 
 
@@ -156,6 +179,56 @@ class CV_OT_ClearApiKey(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CV_OT_ClearGenerationKey(bpy.types.Operator):
+    bl_idname = "cozyverse.clear_generation_key"
+    bl_label = "Clear Provider Key"
+    bl_description = "Clear a session-only 3D provider credential"
+
+    provider: EnumProperty(
+        items=(
+            ("TRIPO", "Tripo", "Clear the Tripo key"),
+            ("MESHY", "Meshy", "Clear the Meshy key"),
+        )
+    )
+
+    def execute(self, context: bpy.types.Context):
+        secrets = context.window_manager.cozyverse_secrets
+        if self.provider == "TRIPO":
+            secrets.tripo_api_key = ""
+        else:
+            secrets.meshy_api_key = ""
+        context.scene.cozyverse.status = f"{self.provider.title()} session key cleared"
+        return {"FINISHED"}
+
+
+class CV_OT_ValidateGenerationSettings(bpy.types.Operator):
+    bl_idname = "cozyverse.validate_generation_settings"
+    bl_label = "Check 3D Provider Setup"
+    bl_description = "Check the selected Tripo or Meshy credential locally without making a request"
+
+    def execute(self, context: bpy.types.Context):
+        entry = context.preferences.addons.get(__package__)
+        preferences = entry.preferences if entry else None
+        secrets = context.window_manager.cozyverse_secrets
+        if preferences is None or preferences.generation_provider == "NONE":
+            message = "3D generation is disabled"
+        elif preferences.generation_provider == "TRIPO" and not secrets.tripo_api_key.strip():
+            message = "Enter a Tripo session key"
+            context.scene.cozyverse.status = message
+            self.report({"WARNING"}, message)
+            return {"CANCELLED"}
+        elif preferences.generation_provider == "MESHY" and not secrets.meshy_api_key.strip():
+            message = "Enter a Meshy session key"
+            context.scene.cozyverse.status = message
+            self.report({"WARNING"}, message)
+            return {"CANCELLED"}
+        else:
+            message = f"{preferences.generation_provider.title()} key is loaded for this session; no request was sent"
+        context.scene.cozyverse.status = message
+        self.report({"INFO"}, message)
+        return {"FINISHED"}
+
+
 class CV_OT_ValidateProviderSettings(bpy.types.Operator):
     bl_idname = "cozyverse.validate_provider_settings"
     bl_label = "Validate Configuration"
@@ -187,11 +260,14 @@ class CV_OT_ValidateProviderSettings(bpy.types.Operator):
 _CLASSES = (
     CV_OT_CreateLocalDemo,
     CV_OT_EditMultilinePrompt,
+    CV_OT_UseMultilinePrompt,
     CV_OT_ResetPrompt,
     CV_OT_ApplyAtmosphere,
     CV_OT_ResetAtmosphere,
     CV_OT_SaveAtmospherePreset,
     CV_OT_ClearApiKey,
+    CV_OT_ClearGenerationKey,
+    CV_OT_ValidateGenerationSettings,
     CV_OT_ValidateProviderSettings,
 )
 
@@ -204,4 +280,3 @@ def register() -> None:
 def unregister() -> None:
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
-
