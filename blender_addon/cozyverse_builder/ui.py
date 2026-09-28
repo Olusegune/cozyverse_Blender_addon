@@ -15,8 +15,7 @@ def _wrapped_lines(value: str, width: int = 34, limit: int = 5) -> list[str]:
     words = value.replace("\n", " ").split()
     if not words:
         return ["No world description yet"]
-    lines: list[str] = []
-    current = ""
+    lines, current = [], ""
     for word in words:
         candidate = f"{current} {word}".strip()
         if current and len(candidate) > width:
@@ -45,73 +44,65 @@ def _draw_header(layout: bpy.types.UILayout, settings) -> None:
     row.label(text="COZYVERSE", icon="WORLD_DATA")
     badge = row.row(align=True)
     badge.alignment = "RIGHT"
-    badge.label(text="LOCAL", icon="LOCKED")
+    badge.label(text="LOCAL SAFE", icon="LOCKED")
     hero.label(text="Editable miniature worlds", icon="MESH_ICOSPHERE")
-    tabs = layout.row(align=True)
-    tabs.scale_y = 1.15
-    tabs.prop(settings, "active_tab", expand=True)
+    hero.label(text=settings.status, icon="INFO")
 
 
 def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     prompt = layout.box()
-    title = prompt.row(align=True)
-    title.label(text="1  DESCRIBE YOUR WORLD", icon="TEXT")
-    prompt.prop(settings, "prompt", text="Quick Prompt")
+    prompt.label(text="DESCRIBE YOUR WORLD", icon="TEXT")
     preview = prompt.box()
-    preview.label(text="PROMPT PREVIEW")
+    preview.label(text="CURRENT PROMPT", icon="PREVIEW_RANGE")
     prompt_value = settings.prompt_text.as_string() if settings.prompt_text else settings.prompt
-    for line in _wrapped_lines(prompt_value):
+    for line in _wrapped_lines(prompt_value, width=40, limit=4):
         preview.label(text=line)
-    editor = prompt.column(align=True)
-    editor.scale_y = 1.25
-    editor.operator("cozyverse.edit_multiline_prompt", text="OPEN LARGE PROMPT EDITOR", icon="TEXT")
-    prompt.prop(settings, "prompt_text", text="Prompt Document")
+    composer = prompt.column(align=True)
+    composer.scale_y = 1.35
+    composer.operator("cozyverse.prompt_composer", text="COMPOSE DETAILED PROMPT", icon="GREASEPENCIL")
+    utilities = prompt.row(align=True)
+    utilities.operator("cozyverse.paste_prompt", text="Paste", icon="PASTEDOWN")
+    utilities.operator("cozyverse.reset_prompt", text="Reset", icon="LOOP_BACK")
+    templates = prompt.box()
+    templates.label(text="QUICK START", icon="BOOKMARKS")
+    row = templates.row(align=True)
+    for name, label, icon in (("VILLAGE", "Village", "HOME"), ("CITY", "City", "OUTLINER_OB_MESH"), ("CAFE", "Cafe", "LIGHT")):
+        operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
+        operator.template = name
+    row = templates.row(align=True)
+    for name, label, icon in (("NATURE", "Nature", "WORLD"), ("FANTASY", "Fantasy", "SOLO_ON"), ("HISTORICAL", "History", "TIME")):
+        operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
+        operator.template = name
     prompt.prop(settings, "preset", text="Style")
-
     action = layout.column(align=True)
-    action.label(text="2  BUILD AN EDITABLE WORLD", icon="OUTLINER_COLLECTION")
-    action.scale_y = 1.4
-    action.operator("cozyverse.create_local_demo", text="BUILD WORLD", icon="MOD_BUILD")
-    reset = action.row(align=True)
-    reset.scale_y = 0.9
-    reset.operator("cozyverse.reset_prompt", text="Reset Prompt", icon="LOOP_BACK")
-
+    action.scale_y = 1.55
+    action.operator("cozyverse.create_local_demo", text="BUILD EDITABLE WORLD", icon="MOD_BUILD")
     safety = layout.box()
-    safety.label(text="SAFE FOUNDATION MODE", icon="LOCKED")
-    safety.label(text="Native editable objects")
-    safety.label(text="No network or paid requests")
-    status = layout.box()
-    status.label(text="STATUS", icon="INFO")
-    status.label(text=settings.status)
+    safety.label(text="LOCAL BUILD • NATIVE OBJECTS • NO COST", icon="LOCKED")
+    advanced = layout.box()
+    advanced.label(text="ADVANCED", icon="PREFERENCES")
+    advanced.label(text="Use Blender's Text Editor for very long prompts.")
+    advanced.operator("cozyverse.edit_multiline_prompt", text="Open Full Text Editor", icon="TEXT")
 
 
 def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     header = layout.box()
     header.label(text="ATMOSPHERE LAB", icon="LIGHT_SUN")
     header.label(text="Controls update the scene immediately")
-
     lighting = layout.box()
-    lighting.prop(settings, "atmosphere_preset", text="Preset")
-    lighting.prop(settings, "time_hour", slider=True)
-    lighting.prop(settings, "sun_intensity", slider=True)
-    lighting.prop(settings, "warmth", slider=True)
-    lighting.prop(settings, "ambient_intensity", slider=True)
-    lighting.prop(settings, "interior_intensity", slider=True)
-
+    for prop in ("atmosphere_preset", "time_hour", "sun_intensity", "warmth", "ambient_intensity", "interior_intensity"):
+        lighting.prop(settings, prop, slider=prop != "atmosphere_preset")
     weather = layout.box()
     weather.label(text="WEATHER PREVIEW", icon="FORCE_WIND")
     weather.prop(settings, "weather", expand=True)
-    rain_row = weather.row()
-    rain_row.enabled = settings.weather == "RAIN"
-    rain_row.prop(settings, "rain_amount", slider=True)
-
+    rain = weather.row()
+    rain.enabled = settings.weather == "RAIN"
+    rain.prop(settings, "rain_amount", slider=True)
     advanced = weather.column(align=True)
     advanced.enabled = False
     advanced.label(text="Advanced weather arrives after R1", icon="LOCKED")
-    advanced.prop(settings, "fog_amount", slider=True)
-    advanced.prop(settings, "wind_amount", slider=True)
-    advanced.prop(settings, "wetness_amount", slider=True)
-
+    for prop in ("fog_amount", "wind_amount", "wetness_amount"):
+        advanced.prop(settings, prop, slider=True)
     actions = layout.row(align=True)
     actions.operator("cozyverse.apply_atmosphere", text="Apply", icon="CHECKMARK")
     actions.operator("cozyverse.reset_atmosphere", text="Reset", icon="LOOP_BACK")
@@ -138,15 +129,13 @@ def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, setti
     hero = layout.box()
     hero.label(text="3D ASSET FACTORY", icon="MESH_ICOSPHERE")
     hero.label(text=f"Provider: {provider_name.title()}")
-    hero.label(text="Local assets should be checked before paid generation", icon="INFO")
-
+    hero.label(text="Check local assets before paid generation", icon="INFO")
     request = layout.box()
-    request.label(text="1  DESCRIBE ONE MISSING ASSET", icon="TEXT")
+    request.label(text="DESCRIBE ONE MISSING ASSET", icon="TEXT")
     request.prop(settings, "generation_prompt", text="")
     request.operator("cozyverse.preview_generation", text="PREVIEW REQUEST", icon="PREVIEW_RANGE")
-
     review = layout.box()
-    review.label(text="2  REVIEW IMPACT AND COST", icon="DOCUMENTS")
+    review.label(text="REVIEW IMPACT AND COST", icon="DOCUMENTS")
     review.label(text=settings.generation_status)
     for line in _wrapped_lines(settings.generation_cost_note, width=36, limit=4):
         review.label(text=line)
@@ -157,24 +146,21 @@ def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, setti
     mock.enabled = bool(settings.generation_plan_json and settings.generation_approved)
     mock.scale_y = 1.3
     mock.operator("cozyverse.run_mock_generation", text="RUN SAFE MOCK JOB", icon="PLAY")
-
     boundary = layout.box()
     boundary.label(text="LIVE PROVIDER BOUNDARY", icon="LOCKED")
     boundary.label(text="No Tripo or Meshy request is sent in this build")
-    boundary.label(text="Live submission needs polling, cancellation and import review")
+    boundary.label(text="Live submission requires separate approval")
 
 
 def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> None:
     preferences = _addon_preferences(context)
     secrets = context.window_manager.cozyverse_secrets
-
     mode = layout.box()
     mode.label(text="RUNTIME MODE", icon="OPTIONS")
     if preferences is None:
         mode.label(text="Local demonstration mode is enforced", icon="LOCKED")
         return
     mode.prop(preferences, "local_demo_only")
-
     provider = layout.box()
     provider.label(text="DIRECTOR AI", icon="NETWORK_DRIVE")
     provider.prop(preferences, "provider", text="")
@@ -184,52 +170,33 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     key_row.prop(secrets, "api_key", text="Session Key")
     key_row.operator("cozyverse.clear_api_key", text="", icon="X")
     configured = bool(secrets.api_key.strip())
-    provider.label(
-        text="Session key loaded" if configured else "No session key loaded",
-        icon="KEY_HLT" if configured else "KEY_DEHLT",
-    )
-    provider.operator(
-        "cozyverse.validate_provider_settings",
-        text="Validate Locally",
-        icon="CHECKMARK",
-    )
-
+    provider.label(text="Session key loaded" if configured else "No session key loaded", icon="KEY_HLT" if configured else "KEY_DEHLT")
+    provider.operator("cozyverse.validate_provider_settings", text="Validate Locally", icon="CHECKMARK")
     generation = layout.box()
     generation.label(text="3D GENERATION", icon="MESH_ICOSPHERE")
     generation.prop(preferences, "generation_provider", text="")
-
-    tripo = generation.box()
-    tripo_header = tripo.row(align=True)
-    tripo_header.label(text="TRIPO", icon="KEY_HLT" if secrets.tripo_api_key else "KEY_DEHLT")
-    tripo_key = tripo.row(align=True)
-    tripo_key.prop(secrets, "tripo_api_key", text="Session Key")
-    clear_tripo = tripo_key.operator("cozyverse.clear_generation_key", text="", icon="X")
-    clear_tripo.provider = "TRIPO"
-
-    meshy = generation.box()
-    meshy_header = meshy.row(align=True)
-    meshy_header.label(text="MESHY", icon="KEY_HLT" if secrets.meshy_api_key else "KEY_DEHLT")
-    meshy_key = meshy.row(align=True)
-    meshy_key.prop(secrets, "meshy_api_key", text="Session Key")
-    clear_meshy = meshy_key.operator("cozyverse.clear_generation_key", text="", icon="X")
-    clear_meshy.provider = "MESHY"
-
+    for provider_id, label, attribute in (("TRIPO", "TRIPO", "tripo_api_key"), ("MESHY", "MESHY", "meshy_api_key")):
+        box = generation.box()
+        has_key = bool(getattr(secrets, attribute))
+        box.label(text=label, icon="KEY_HLT" if has_key else "KEY_DEHLT")
+        key = box.row(align=True)
+        key.prop(secrets, attribute, text="Session Key")
+        clear = key.operator("cozyverse.clear_generation_key", text="", icon="X")
+        clear.provider = provider_id
     generation.operator("cozyverse.validate_generation_settings", text="Check Setup Locally", icon="CHECKMARK")
     note = generation.column(align=True)
     note.enabled = False
     note.label(text="Generation requests are not enabled in R1", icon="LOCKED")
-    note.label(text="Each future job will require cost and consent review")
-
+    note.label(text="Future jobs require cost and consent review")
     security = layout.box()
     security.label(text="CREDENTIAL SAFETY", icon="LOCKED")
     security.label(text="Keys are masked and session-only")
     security.label(text="Keys are never saved in .blend files")
     security.label(text="Validation sends no network request")
-
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.5.0 Provider Foundation")
+    about.label(text="CozyVerse 0.6.0 Interface Refresh")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
@@ -237,20 +204,55 @@ class CV_PT_Main(_CVPanel, bpy.types.Panel):
     bl_label = "CozyVerse Builder"
 
     def draw(self, context: bpy.types.Context) -> None:
-        settings = context.scene.cozyverse
-        layout = self.layout
-        _draw_header(layout, settings)
-        layout.separator(factor=0.5)
-        if settings.active_tab == "CREATE":
-            _draw_create(layout, settings)
-        elif settings.active_tab == "ATMOSPHERE":
-            _draw_atmosphere(layout, settings)
-        elif settings.active_tab == "GENERATE":
-            _draw_generate(context, layout, settings)
-        elif settings.active_tab == "ACTIVITY":
-            _draw_activity(layout, settings)
-        else:
-            _draw_settings(context, layout)
+        _draw_header(self.layout, context.scene.cozyverse)
+
+
+class _CVChildPanel(_CVPanel):
+    bl_parent_id = "CV_PT_main"
+
+
+class CV_PT_Create(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_create"
+    bl_label = "Create World"
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_create(self.layout, context.scene.cozyverse)
+
+
+class CV_PT_Atmosphere(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_atmosphere"
+    bl_label = "Atmosphere Lab"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_atmosphere(self.layout, context.scene.cozyverse)
+
+
+class CV_PT_Generate(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_generate"
+    bl_label = "3D Asset Factory"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_generate(context, self.layout, context.scene.cozyverse)
+
+
+class CV_PT_Activity(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_activity"
+    bl_label = "Activity & Safety"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_activity(self.layout, context.scene.cozyverse)
+
+
+class CV_PT_Settings(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_settings"
+    bl_label = "Connections & Settings"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_settings(context, self.layout)
 
 
 class CV_TEXT_PT_Prompt(bpy.types.Panel):
@@ -262,16 +264,17 @@ class CV_TEXT_PT_Prompt(bpy.types.Panel):
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
-        layout.label(text="LARGE PROMPT EDITOR", icon="TEXT")
+        layout.label(text="ADVANCED PROMPT EDITOR", icon="TEXT")
         layout.label(text="Write naturally across multiple lines.")
+        layout.label(text="Press Shift+F5 to return to the 3D View.", icon="INFO")
         layout.separator()
         column = layout.column(align=True)
         column.scale_y = 1.4
         column.operator("cozyverse.use_multiline_prompt", text="USE PROMPT AND RETURN", icon="CHECKMARK")
-        layout.label(text="Then select Build World in CozyVerse.", icon="INFO")
+        layout.label(text="Then choose Build Editable World.", icon="INFO")
 
 
-_CLASSES = (CV_PT_Main, CV_TEXT_PT_Prompt)
+_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_Atmosphere, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
 
 
 def register() -> None:

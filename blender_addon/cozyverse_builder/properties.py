@@ -123,6 +123,11 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         description="Optional Blender Text datablock used for a multiline world description",
         type=bpy.types.Text,
     )
+    prompt_setting: StringProperty(name="Setting", default="a tiny neighborhood on a miniature diorama base", maxlen=500)
+    prompt_subject: StringProperty(name="Focal Subject", default="a welcoming sari-sari store", maxlen=500)
+    prompt_mood: StringProperty(name="Mood and Time", default="cozy golden-hour lighting", maxlen=500)
+    prompt_details: StringProperty(name="Must Include", default="a road, tropical plants, warm shop lights", maxlen=1000)
+    prompt_avoid: StringProperty(name="Avoid", default="photorealism, excessive clutter", maxlen=500)
     preset: EnumProperty(
         name="Preset",
         items=(

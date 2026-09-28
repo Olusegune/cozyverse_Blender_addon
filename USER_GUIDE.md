@@ -4,17 +4,19 @@
 
 1. Install the CozyVerse ZIP through **Edit > Preferences > Get Extensions > Install from Disk**.
 2. In the 3D View, press `N` and select the **CozyVerse** tab.
-3. Keep **Create** selected, describe a miniature world, and choose a style.
-4. Select **Build World**.
+3. Expand **Create World**, choose a template or select **Compose Detailed Prompt**, and choose a style.
+4. Select **Build Editable World**.
 5. Open `CV_WORLD` in the Outliner and edit its meshes, lights, materials, and camera normally.
 
 The current foundation build is deterministic and offline. It creates a demonstration from Blender primitives so you can evaluate the interaction without an account, API key, or paid service.
 
-## Sidebar workspaces
+## Sidebar sections
 
-### Create
+### Create World
 
-Enter a concise world description, select a style, and build the local demonstration. **Open Large Prompt Editor** creates a `CV_World_Prompt` Text datablock and uses Blender's full Text Editor area for genuine multiline writing. Select **Use Prompt and Return** in the Text Editor's CozyVerse sidebar, then select **Build World**. Each new build creates a numbered `CV_WORLD` collection so earlier generated worlds and manual edits remain intact.
+Choose one of six quick-start templates, paste a prompt from the clipboard, or select **Compose Detailed Prompt**. The composer is a bounded dialog with Setting, Subject, Mood, Details, and Avoid fields plus clear **Apply Prompt** and **Cancel** actions; it does not replace the Blender workspace. Select a style and build the local demonstration. Each new build creates a numbered `CV_WORLD` collection so earlier generated worlds and manual edits remain intact.
+
+For unusually long free-form prompts, **Open Full Text Editor** creates a `CV_World_Prompt` Text datablock and switches the current area to Blender's Text Editor. Select **Use Prompt and Return**, or press **Shift+F5** to return to the 3D View. This is deliberately labeled as an advanced path.
 
 ### Atmosphere
 
@@ -26,13 +28,13 @@ The controls update immediately. **Apply** reruns the complete mapping, **Reset*
 
 Review the last operation, offline-engine state, and latest build prompt. A success message means Blender completed the operator; suggestions or text alone never imply that the scene changed.
 
-### Settings
+### Connections & Settings
 
 Choose Local Only or configure fields for a future AI provider adapter. The foundation validates only whether the required fields exist. It does not contact a provider.
 
 The 3D Generation section provides separate masked session fields for Tripo and Meshy. Select a provider and use **Check Setup Locally** to confirm that its key is loaded. This check never contacts Tripo or Meshy. Generation submission remains disabled until a later approved adapter adds request previews, estimated cost, explicit per-job consent, polling, cancellation, download validation, and provenance.
 
-### Generate
+### 3D Asset Factory
 
 The Generate workspace prepares an official-contract request for the selected provider. It shows the pinned model, provider cost warning, and a fingerprint for the exact payload. Approval resets whenever the request is previewed. **Run Safe Mock Job** creates an editable placeholder with the plan fingerprint and never contacts a provider or spends credits. Live submission remains disabled until asynchronous polling, cancellation, validated download, and import review are complete.
 

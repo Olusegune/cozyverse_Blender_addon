@@ -1,6 +1,6 @@
 # Credential and Data Safety
 
-CozyVerse Builder 0.5.0 keeps live provider submission disabled. Its current generation workflow creates request previews and mock assets without making a network request.
+CozyVerse Builder 0.6.0 keeps live provider submission disabled. Its current generation workflow creates request previews and mock assets without making a network request.
 
 Director, Tripo, and Meshy API keys entered in the sidebar are runtime-only Blender properties marked `SKIP_SAVE`. They are masked in the interface and excluded from scene properties. Automated Blender testing verifies that known secret sentinels do not appear in the saved `.blend` bytes.
 

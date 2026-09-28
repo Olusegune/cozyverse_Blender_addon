@@ -15,12 +15,21 @@ sys.path.insert(0, str(addon_parent))
 
 addon = importlib.import_module("cozyverse_builder")
 from cozyverse_builder.providers.contracts import build_plan
+from cozyverse_builder.operators import _compose_prompt
 
 addon.register()
 try:
     assert hasattr(bpy.types.Scene, "cozyverse")
     assert hasattr(bpy.types.WindowManager, "cozyverse_secrets")
     settings = bpy.context.scene.cozyverse
+
+    composed = _compose_prompt("a tiny harbor", "a lighthouse", "misty dawn", "boats", "modern cars")
+    assert composed.startswith("Create a tiny harbor") and composed.endswith(".")
+    assert bpy.ops.cozyverse.apply_prompt_template(template="CAFE") == {"FINISHED"}
+    assert "cafe" in settings.prompt.lower()
+    # Headless Blender does not expose a system clipboard; verify its safe empty-state path.
+    bpy.context.window_manager.clipboard = ""
+    assert bpy.ops.cozyverse.paste_prompt() == {"CANCELLED"}
 
     bpy.ops.mesh.primitive_cube_add(location=(20.0, 20.0, 20.0))
     preexisting = bpy.context.object

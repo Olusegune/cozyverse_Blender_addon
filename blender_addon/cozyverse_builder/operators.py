@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import bpy
-from bpy.props import EnumProperty
+from bpy.props import EnumProperty, StringProperty
 
 from .atmosphere import apply_atmosphere
 from .core.atmosphere_spec import AtmosphereValues, PRESETS, serialize_preset
@@ -18,6 +18,21 @@ def _prompt_from_settings(settings) -> str:
         if multiline:
             return multiline[:4000]
     return settings.prompt.strip()[:4000]
+
+
+def _compose_prompt(setting: str, subject: str, mood: str, details: str, avoid: str) -> str:
+    parts = []
+    if setting.strip():
+        parts.append(f"Create {setting.strip()}")
+    if subject.strip():
+        parts.append(f"The focal subject is {subject.strip()}")
+    if mood.strip():
+        parts.append(f"Use {mood.strip()}")
+    if details.strip():
+        parts.append(f"Include {details.strip()}")
+    if avoid.strip():
+        parts.append(f"Avoid {avoid.strip()}")
+    return ". ".join(parts).rstrip(".") + "." if parts else ""
 
 
 class CV_OT_CreateLocalDemo(bpy.types.Operator):
@@ -65,6 +80,112 @@ class CV_OT_EditMultilinePrompt(bpy.types.Operator):
         context.space_data.text = text
         settings.status = "Editing CV_World_Prompt; press Shift+F5 to return to 3D View"
         self.report({"INFO"}, settings.status)
+        return {"FINISHED"}
+
+
+class CV_OT_PromptComposer(bpy.types.Operator):
+    bl_idname = "cozyverse.prompt_composer"
+    bl_label = "Prompt Composer"
+    bl_description = "Compose a detailed prompt in a bounded dialog without leaving the 3D View"
+
+    setting: StringProperty(name="Setting")
+    subject: StringProperty(name="Focal Subject")
+    mood: StringProperty(name="Mood and Time")
+    details: StringProperty(name="Must Include")
+    avoid: StringProperty(name="Avoid")
+
+    def invoke(self, context: bpy.types.Context, _event):
+        settings = context.scene.cozyverse
+        self.setting = settings.prompt_setting
+        self.subject = settings.prompt_subject
+        self.mood = settings.prompt_mood
+        self.details = settings.prompt_details
+        self.avoid = settings.prompt_avoid
+        try:
+            return context.window_manager.invoke_props_dialog(self, width=620, confirm_text="Apply Prompt")
+        except TypeError:
+            return context.window_manager.invoke_props_dialog(self, width=620)
+
+    def draw(self, _context: bpy.types.Context) -> None:
+        layout = self.layout
+        intro = layout.box()
+        intro.label(text="Build a clear world description", icon="TEXT")
+        intro.label(text="Complete only the fields that matter. Cancel closes this dialog without changes.")
+        fields = layout.column(align=True)
+        fields.prop(self, "setting")
+        fields.prop(self, "subject")
+        fields.prop(self, "mood")
+        fields.prop(self, "details")
+        fields.prop(self, "avoid")
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        prompt = _compose_prompt(self.setting, self.subject, self.mood, self.details, self.avoid)
+        if not prompt:
+            self.report({"WARNING"}, "Add at least one prompt detail")
+            return {"CANCELLED"}
+        settings.prompt_setting = self.setting
+        settings.prompt_subject = self.subject
+        settings.prompt_mood = self.mood
+        settings.prompt_details = self.details
+        settings.prompt_avoid = self.avoid
+        settings.prompt = prompt[:4000]
+        settings.prompt_text = None
+        settings.status = "Prompt composed and ready to build"
+        return {"FINISHED"}
+
+
+class CV_OT_ApplyPromptTemplate(bpy.types.Operator):
+    bl_idname = "cozyverse.apply_prompt_template"
+    bl_label = "Apply Prompt Template"
+    bl_description = "Start from a curated world-description template"
+
+    template: EnumProperty(
+        items=(
+            ("VILLAGE", "Village", "Cozy miniature village"),
+            ("CITY", "City", "Stylized neighborhood block"),
+            ("CAFE", "Cafe", "Intimate miniature cafe"),
+            ("NATURE", "Nature", "Miniature natural landscape"),
+            ("FANTASY", "Fantasy", "Whimsical fantasy settlement"),
+            ("HISTORICAL", "Historical", "Period-inspired streetscape"),
+        )
+    )
+
+    def execute(self, context: bpy.types.Context):
+        templates = {
+            "VILLAGE": ("a tiny village on a miniature diorama base", "a welcoming town square", "cozy golden-hour lighting", "small homes, paths, trees and story props", "photorealism and modern vehicles"),
+            "CITY": ("a stylized neighborhood city block", "a colorful corner shop", "warm dusk lighting", "a road, signs, plants and street furniture", "dense skyscrapers and excessive traffic"),
+            "CAFE": ("an intimate miniature cafe scene", "a warmly lit cafe storefront", "rainy evening ambience", "outdoor tables, plants and glowing windows", "crowds and oversized furniture"),
+            "NATURE": ("a miniature natural landscape", "a winding stream and hero tree", "soft morning light", "rocks, layered vegetation and a small path", "buildings and urban clutter"),
+            "FANTASY": ("a whimsical fantasy settlement", "a tiny wizard workshop", "magical twilight", "lanterns, unusual plants and curved architecture", "realistic modern objects"),
+            "HISTORICAL": ("a period-inspired miniature streetscape", "a traditional market building", "soft late-afternoon light", "era-appropriate stalls, paths and vegetation", "modern signage and vehicles"),
+        }
+        settings = context.scene.cozyverse
+        setting, subject, mood, details, avoid = templates[self.template]
+        settings.prompt_setting = setting
+        settings.prompt_subject = subject
+        settings.prompt_mood = mood
+        settings.prompt_details = details
+        settings.prompt_avoid = avoid
+        settings.prompt = _compose_prompt(setting, subject, mood, details, avoid)
+        settings.prompt_text = None
+        settings.status = f"{self.template.title()} prompt template applied"
+        return {"FINISHED"}
+
+
+class CV_OT_PastePrompt(bpy.types.Operator):
+    bl_idname = "cozyverse.paste_prompt"
+    bl_label = "Paste Prompt"
+    bl_description = "Use text currently stored in the system clipboard"
+
+    def execute(self, context: bpy.types.Context):
+        value = context.window_manager.clipboard.strip()
+        if not value:
+            self.report({"WARNING"}, "Clipboard does not contain prompt text")
+            return {"CANCELLED"}
+        context.scene.cozyverse.prompt = value[:4000]
+        context.scene.cozyverse.prompt_text = None
+        context.scene.cozyverse.status = "Clipboard prompt ready"
         return {"FINISHED"}
 
 
@@ -315,6 +436,9 @@ class CV_OT_ValidateProviderSettings(bpy.types.Operator):
 
 _CLASSES = (
     CV_OT_CreateLocalDemo,
+    CV_OT_PromptComposer,
+    CV_OT_ApplyPromptTemplate,
+    CV_OT_PastePrompt,
     CV_OT_EditMultilinePrompt,
     CV_OT_UseMultilinePrompt,
     CV_OT_ResetPrompt,

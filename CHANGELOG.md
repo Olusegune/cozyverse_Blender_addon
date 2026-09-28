@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- Replaced the tabbed sidebar with compact, collapsible workflow panels.
+- Added a bounded structured Prompt Composer with clear Apply and Cancel actions.
+- Added six quick-start world templates plus clipboard paste and prompt preview.
+- Moved the full Blender Text Editor into a clearly labeled advanced workflow.
+- Added an explicit return shortcut hint to the advanced editor.
+
 ## 0.5.0
 
 - Added official-contract request builders for Tripo v3 and Meshy text-to-3D v2.
