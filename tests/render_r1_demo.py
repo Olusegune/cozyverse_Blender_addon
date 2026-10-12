@@ -48,5 +48,15 @@ settings.snow_amount = 70.0
 scene.render.filepath = str(qa_dir / "snow-world.png")
 bpy.ops.render.render(write_still=True)
 
+settings.story_preset = "RAINY_EVENING"
+settings.story_start_frame = 1
+settings.story_end_frame = 120
+assert bpy.ops.cozyverse.preview_story() == {"FINISHED"}
+settings.story_approved = True
+assert bpy.ops.cozyverse.apply_story() == {"FINISHED"}
+scene.frame_set(60)
+scene.render.filepath = str(qa_dir / "story-rainy-evening-mid.png")
+bpy.ops.render.render(write_still=True)
+
 addon.unregister()
-print("COZYVERSE_M7_RENDER_QA_OK")
+print("COZYVERSE_M8_RENDER_QA_OK")

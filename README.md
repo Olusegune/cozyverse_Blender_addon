@@ -1,10 +1,12 @@
 # CozyVerse Builder
 
-CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.15.3 includes the large visual-card interface plus registered dark/light Story, animation, timeline, shot, and export icons for the gated cinematic milestone.
+CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.16.0 adds reviewed, deterministic Story Moments using native editable Blender Actions and keyframes.
 
 The foundation build provides:
 
 - bundled header, style, template, atmosphere, onboarding, provider, and empty-state artwork with native Blender icon fallbacks;
+- preview-before-apply Quiet Morning, Busy Market, and Rainy Evening Story Moments;
+- editable character idle motion, foliage sway, precipitation travel, and practical-light pulse with protected/manual-animation skip rules;
 - a native 3D View sidebar under the `CozyVerse` tab;
 - a reference-image preview, local palette/composition analysis, and quality-bounded editable offline interpretation;
 - safe filename indexing for Blender Asset Libraries and an optional local model folder;

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import bpy
 import json
+import math
 import queue
 import re
 import threading
@@ -23,6 +24,7 @@ from .core.style_spec import STYLE_PRESETS, style_items, styled_prompt
 from .core.scene_plan import ScenePlan, parse_plan, proposed_plan
 from .core.asset_catalog import AssetRecord, match_assets, record_from_path
 from .core.revision_spec import make_revision_preview, plan_fingerprint, redact_log_message
+from .core.story_spec import PRESETS as STORY_PRESETS, StoryPlan, build_story_plan
 
 
 _PROVIDER_RESULTS: queue.SimpleQueue = queue.SimpleQueue()
@@ -234,6 +236,242 @@ def _set_atmosphere_values(settings, values: AtmosphereValues, preset: str = "CU
     settings.weather_quality = values.weather_quality
 
 
+def _has_animation(value) -> bool:
+    animation = getattr(value, "animation_data", None)
+    return bool(animation and (animation.action or animation.drivers or animation.nla_tracks))
+
+
+def _story_candidates(world, preset: str):
+    characters, foliage, precipitation, lights, skipped = [], [], [], [], 0
+    for obj in _world_objects(world):
+        category = None
+        if obj.name.startswith("CV_Character_") and obj.type == "MESH":
+            category = characters
+        elif obj.name.endswith("_Leaves") and obj.type == "MESH":
+            category = foliage
+        elif preset == "RAINY_EVENING" and obj.name.startswith("CV_Rain_Preview"):
+            category = precipitation
+        elif obj.name.startswith("CV_Interior_") and isinstance(getattr(obj, "data", None), bpy.types.Light):
+            category = lights
+        if category is None:
+            continue
+        if obj.get("cv_locked") or _has_animation(obj) or _has_animation(getattr(obj, "data", None)):
+            skipped += 1
+        else:
+            category.append(obj)
+    return characters, foliage, precipitation, lights, skipped
+
+
+def _story_id_for_world(world) -> str:
+    return next((str(obj.get("cv_story_id")) for obj in _world_objects(world) if obj.name.startswith("CV_Story_") and obj.get("cv_story_id")), "")
+
+
+def _current_story_plan(settings, world) -> tuple[StoryPlan, tuple]:
+    candidates = _story_candidates(world, settings.story_preset)
+    characters, foliage, precipitation, lights, skipped = candidates
+    plan = build_story_plan(
+        settings.story_preset,
+        world.name,
+        settings.story_start_frame,
+        settings.story_end_frame,
+        len(characters),
+        len(foliage),
+        len(precipitation),
+        len(lights),
+        skipped,
+    )
+    return plan, candidates
+
+
+def _tag_action(owner, story_id: str, name: str):
+    animation = owner.animation_data
+    action = animation.action if animation else None
+    if action is not None:
+        action.name = f"CV_STORY_{story_id}_{name}"[:63]
+        action["cv_story_id"] = story_id
+        action["cv_managed"] = True
+    return action
+
+
+def _animate_object(obj, story_id: str, frames: tuple[int, int, int], data_path: str, index: int, values: tuple[float, float, float]) -> None:
+    original = list(getattr(obj, data_path))
+    obj[f"cv_story_original_{data_path}"] = json.dumps(original)
+    for frame, value in zip(frames, values):
+        getattr(obj, data_path)[index] = value
+        obj.keyframe_insert(data_path=data_path, index=index, frame=frame, group="CozyVerse Story")
+    getattr(obj, data_path)[index] = original[index]
+    obj["cv_story_id"] = story_id
+    _tag_action(obj, story_id, obj.name)
+
+
+def _animate_light(obj, story_id: str, frames: tuple[int, int, int], pulse: float) -> None:
+    light = obj.data
+    original = float(light.energy)
+    light["cv_story_original_energy"] = original
+    for frame, value in zip(frames, (original, original * (1.0 + pulse), original)):
+        light.energy = value
+        light.keyframe_insert(data_path="energy", frame=frame, group="CozyVerse Story")
+    light.energy = original
+    light["cv_story_id"] = story_id
+    _tag_action(light, story_id, obj.name)
+
+
+def _remove_story_action(owner, story_id: str) -> None:
+    animation = getattr(owner, "animation_data", None)
+    action = animation.action if animation else None
+    if action is not None and action.get("cv_story_id") == story_id:
+        animation.action = None
+        if action.users == 0:
+            bpy.data.actions.remove(action)
+
+
+class CV_OT_PreviewStory(bpy.types.Operator):
+    bl_idname = "cozyverse.preview_story"
+    bl_label = "Preview Story Plan"
+    bl_description = "Count affected objects and keyframes without changing the scene"
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        world = bpy.data.collections.get(settings.active_world_name)
+        if world is None or not world.get("cv_managed"):
+            settings.story_status = "Build or select a CozyVerse world first"
+            return {"CANCELLED"}
+        settings.story_active_id = _story_id_for_world(world)
+        if settings.story_active_id:
+            settings.story_status = "Clear the active Story before preparing another"
+            return {"CANCELLED"}
+        try:
+            plan, _ = _current_story_plan(settings, world)
+        except ValueError as exc:
+            settings.story_status = str(exc)
+            return {"CANCELLED"}
+        settings.story_preview_json = plan.canonical_json()
+        settings.story_fingerprint = plan.fingerprint()
+        settings.story_target_count = plan.target_count
+        settings.story_skipped_count = plan.skipped_count
+        settings.story_keyframe_count = plan.keyframe_count
+        settings.story_approved = False
+        settings.story_status = f"Preview ready: {plan.target_count} targets, {plan.keyframe_count} keyframes, {plan.skipped_count} skipped"
+        _log_activity(context, "STORY_REVIEW", settings.story_status)
+        return {"FINISHED"}
+
+
+class CV_OT_ApplyStory(bpy.types.Operator):
+    bl_idname = "cozyverse.apply_story"
+    bl_label = "Apply Story Moment"
+    bl_description = "Create reviewed editable Blender Actions and keyframes"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        world = bpy.data.collections.get(settings.active_world_name)
+        active_story = _story_id_for_world(world) if world is not None else ""
+        settings.story_active_id = active_story
+        if world is None or not settings.story_approved or active_story:
+            settings.story_status = "Preview and approve a Story plan for the active world"
+            return {"CANCELLED"}
+        plan, candidates = _current_story_plan(settings, world)
+        if plan.fingerprint() != settings.story_fingerprint or plan.canonical_json() != settings.story_preview_json:
+            settings.story_approved = False
+            settings.story_status = "Story targets changed after preview; preview again"
+            return {"CANCELLED"}
+        story_id = plan.fingerprint()[:12]
+        preset = STORY_PRESETS[plan.preset]
+        frames = (plan.start_frame, plan.midpoint, plan.end_frame)
+        characters, foliage, precipitation, lights, _ = candidates
+        for index, obj in enumerate(characters):
+            base = obj.location.z
+            amplitude = preset.character_motion * (1.0 if index % 2 == 0 else -0.65)
+            _animate_object(obj, story_id, frames, "location", 2, (base, base + amplitude, base))
+        for index, obj in enumerate(foliage):
+            base = obj.rotation_euler.y
+            amplitude = math.radians(preset.foliage_sway_degrees) * (1.0 if index % 2 == 0 else -1.0)
+            _animate_object(obj, story_id, frames, "rotation_euler", 1, (base, base + amplitude, base))
+        for obj in precipitation:
+            base = obj.location.z
+            _animate_object(obj, story_id, frames, "location", 2, (base, base - preset.precipitation_travel, base))
+        for obj in lights:
+            _animate_light(obj, story_id, frames, preset.light_pulse)
+        story_collection = bpy.data.collections.new(f"CV_STORY_{story_id}")
+        world.children.link(story_collection)
+        controller = bpy.data.objects.new(f"CV_Story_{plan.preset.title()}", None)
+        story_collection.objects.link(controller)
+        controller.empty_display_type = "CIRCLE"
+        controller["cv_story_id"] = story_id
+        controller["cv_story_plan"] = plan.canonical_json()
+        controller["cv_world_root"] = world.name
+        controller["cv_managed"] = True
+        controller["cv_original_frame_start"] = context.scene.frame_start
+        controller["cv_original_frame_end"] = context.scene.frame_end
+        controller["cv_original_weather"] = settings.weather
+        controller["cv_original_rain_amount"] = settings.rain_amount
+        story_collection["cv_story_id"] = story_id
+        story_collection["cv_managed"] = True
+        context.scene.frame_start = plan.start_frame
+        context.scene.frame_end = plan.end_frame
+        if plan.preset == "RAINY_EVENING":
+            settings.weather = "RAIN"
+            settings.rain_amount = max(55.0, settings.rain_amount)
+        settings.story_active_id = story_id
+        settings.story_approved = False
+        settings.story_status = f"{preset.label} applied as editable Blender keyframes"
+        _log_activity(context, "STORY_APPLY", settings.story_status)
+        if context.area is not None and context.area.type == "VIEW_3D":
+            bpy.ops.ed.undo_push(message="Apply CozyVerse Story")
+        return {"FINISHED"}
+
+
+class CV_OT_ClearStory(bpy.types.Operator):
+    bl_idname = "cozyverse.clear_story"
+    bl_label = "Clear Active Story"
+    bl_description = "Remove only the active CozyVerse Story actions and restore its original values"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        world = bpy.data.collections.get(settings.active_world_name)
+        story_id = _story_id_for_world(world) if world is not None else ""
+        settings.story_active_id = story_id
+        if not story_id or world is None:
+            settings.story_status = "There is no active Story to clear"
+            return {"CANCELLED"}
+        controller = next((obj for obj in _world_objects(world) if obj.get("cv_story_id") == story_id and obj.name.startswith("CV_Story_")), None)
+        for obj in _world_objects(world):
+            if obj.get("cv_story_id") == story_id:
+                for data_path in ("location", "rotation_euler"):
+                    key = f"cv_story_original_{data_path}"
+                    if key in obj:
+                        setattr(obj, data_path, json.loads(obj[key]))
+                        del obj[key]
+                _remove_story_action(obj, story_id)
+                if "cv_story_id" in obj and obj is not controller:
+                    del obj["cv_story_id"]
+            data = getattr(obj, "data", None)
+            if data is not None and data.get("cv_story_id") == story_id:
+                if "cv_story_original_energy" in data:
+                    data.energy = float(data["cv_story_original_energy"])
+                    del data["cv_story_original_energy"]
+                _remove_story_action(data, story_id)
+                del data["cv_story_id"]
+        if controller is not None:
+            context.scene.frame_start = int(controller.get("cv_original_frame_start", context.scene.frame_start))
+            context.scene.frame_end = int(controller.get("cv_original_frame_end", context.scene.frame_end))
+            settings.weather = controller.get("cv_original_weather", settings.weather)
+            settings.rain_amount = float(controller.get("cv_original_rain_amount", settings.rain_amount))
+            owner = controller.users_collection[0] if controller.users_collection else None
+            bpy.data.objects.remove(controller, do_unlink=True)
+            if owner is not None:
+                if owner.name in world.children:
+                    world.children.unlink(owner)
+                bpy.data.collections.remove(owner)
+        settings.story_active_id = ""
+        settings.story_preview_json = ""
+        settings.story_fingerprint = ""
+        settings.story_status = "Story cleared; original static values restored"
+        _log_activity(context, "STORY_CLEAR", settings.story_status)
+        return {"FINISHED"}
+
+
 class CV_OT_StartOnboarding(bpy.types.Operator):
     bl_idname = "cozyverse.start_onboarding"
     bl_label = "Start Guided Example"
@@ -379,6 +617,7 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             settings.operation_progress = 1.0
             settings.workflow_step = "BUILT"
             settings.active_world_name = world.name
+            settings.story_active_id = ""
             settings.last_demo_prompt = plan.prompt
             settings.last_error = ""
             settings.recovery_hint = "Use Select & Frame to inspect it. Previous versions remain untouched."
@@ -416,6 +655,8 @@ class CV_OT_SelectWorld(bpy.types.Operator):
         if objects:
             context.view_layer.objects.active = objects[0]
         context.scene.cozyverse.active_world_name = world.name
+        context.scene.cozyverse.story_active_id = _story_id_for_world(world)
+        context.scene.cozyverse.story_status = "Active Story loaded" if context.scene.cozyverse.story_active_id else "No Story applied to this world"
         context.scene["cv_active_world"] = world.name
         saved_atmosphere = world.get("cv_atmosphere_values")
         if saved_atmosphere:
@@ -542,6 +783,7 @@ class CV_OT_CreateLocalDemo(bpy.types.Operator):
             world = build_offline_world(context.scene, settings, prompt)
             settings.last_demo_prompt = prompt
             settings.active_world_name = world.name
+            settings.story_active_id = ""
             settings.workflow_step = "BUILT"
             settings.operation_progress = 1.0
             settings.status = f"World ready: {world.name}"
@@ -1012,6 +1254,7 @@ class CV_OT_RecreateReferenceMock(bpy.types.Operator):
         root["cv_indexed_asset_count"] = int(settings.indexed_asset_count or 0)
         settings.reference_status = f"Editable interpretation ready: {root.name}"
         settings.active_world_name = root.name
+        settings.story_active_id = ""
         settings.workflow_step = "BUILT"
         settings.operation_progress = 1.0
         return {"FINISHED"}
@@ -1563,6 +1806,9 @@ _CLASSES = (
     CV_OT_ResetAtmosphere,
     CV_OT_SaveAtmospherePreset,
     CV_OT_LoadAtmospherePreset,
+    CV_OT_PreviewStory,
+    CV_OT_ApplyStory,
+    CV_OT_ClearStory,
     CV_OT_ClearApiKey,
     CV_OT_ClearGenerationKey,
     CV_OT_ValidateGenerationSettings,

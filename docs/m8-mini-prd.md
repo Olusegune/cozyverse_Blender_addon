@@ -1,6 +1,6 @@
 # Milestone 8 mini-PRDs — Story Moments, Living Worlds and Cinematic Studio
 
-Status: proposed; implementation requires explicit approval for each slice.
+Status: M8.1 approved and implemented in 0.16.0; M8.2 and M8.3 still require separate approval.
 
 ## M8.1 — Story Moments and Living Worlds
 

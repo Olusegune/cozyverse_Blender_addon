@@ -67,6 +67,14 @@ Choose a PNG, JPEG, WebP, or TIFF and click **Analyze Composition Locally**. The
 
 This is deliberately an approximation: local analysis does not identify exact houses, characters, streets, or props. It creates a composition-aware, editable starting point and records its source cues and quality on the world collection. Use Asset Match & Placement to replace procedural stand-ins with your own models.
 
+### Story Moments
+
+Build or select a CozyVerse world, then open **Story Moments**. Choose Quiet Morning, Busy Market, or Rainy Evening and set the start/end frames. **Preview Story Plan** only counts eligible objects, skipped objects, and proposed keyframes; it does not modify the scene. Review the summary, enable **I reviewed this Story plan**, and choose **Apply Story**.
+
+Story Moments use normal Blender Actions and three-key loops. Depending on the preset, eligible characters bob subtly, foliage sways, rain travels, and practical lights pulse. Locked objects and objects or lights that already contain animation are skipped. **Clear Active Story** removes only Actions tagged with that Story identifier, restores original values and weather, and leaves unrelated/manual animation intact.
+
+Only one Story may be active per world. Selecting another world loads that world's Story state. Camera shot sequencing and export are intentionally reserved for M8.2 and M8.3.
+
 Choose a PNG, JPEG, WebP, or TIFF diorama reference. CozyVerse loads it locally and displays a preview. **Extract Color Palette** samples the image inside Blender; it does not upload the image. **Create Editable Interpretation** builds a new native Blender world using deterministic geometry and the extracted palette. This is an editable artistic interpretation—not exact single-image geometry reconstruction.
 
 The resulting world collection records the local reference path and reconstruction mode for provenance. External vision analysis remains disabled until an approved milestone adds an inspectable scene plan, privacy review, and explicit upload consent.

@@ -127,6 +127,51 @@ try:
     assert bpy.data.materials["CV_Mat_Earth"].roughness < bpy.data.materials["CV_Mat_Earth"]["cv_dry_roughness"]
     settings.season = "AUTUMN"
     assert bpy.data.materials["CV_Mat_Leaves"].diffuse_color[0] > bpy.data.materials["CV_Mat_Leaves"].diffuse_color[1]
+
+    story_character = bpy.data.objects["CV_Character_1_Body"]
+    story_locked = bpy.data.objects["CV_Character_1_Head"]
+    story_locked["cv_locked"] = True
+    manual_character = bpy.data.objects["CV_Character_2_Body"]
+    manual_character.keyframe_insert(data_path="rotation_euler", index=2, frame=1)
+    manual_action = manual_character.animation_data.action
+    original_character_location = tuple(story_character.location)
+    actions_before_preview = set(bpy.data.actions)
+    settings.story_preset = "BUSY_MARKET"
+    settings.story_start_frame = 1
+    settings.story_end_frame = 120
+    assert bpy.ops.cozyverse.preview_story() == {"FINISHED"}
+    assert set(bpy.data.actions) == actions_before_preview
+    assert tuple(story_character.location) == original_character_location
+    assert settings.story_skipped_count >= 2
+    assert settings.story_approved is False
+    settings.story_approved = True
+    assert bpy.ops.cozyverse.apply_story() == {"FINISHED"}
+    first_story_id = settings.story_active_id
+    assert first_story_id
+    assert story_character.animation_data.action.get("cv_story_id") == first_story_id
+    bpy.context.scene.frame_set(60)
+    assert story_character.location.z != original_character_location[2]
+    bpy.context.scene.frame_set(1)
+    assert story_locked.animation_data is None
+    assert manual_character.animation_data.action is manual_action
+    assert bpy.data.collections.get(f"CV_STORY_{first_story_id}") is not None
+    assert bpy.ops.cozyverse.clear_story() == {"FINISHED"}
+    assert settings.story_active_id == ""
+    assert story_character.animation_data.action is None
+    assert tuple(story_character.location) == original_character_location
+    assert manual_character.animation_data.action is manual_action
+    story_locked["cv_locked"] = False
+    original_weather = settings.weather
+    original_rain_amount = settings.rain_amount
+    settings.story_preset = "RAINY_EVENING"
+    assert bpy.ops.cozyverse.preview_story() == {"FINISHED"}
+    settings.story_approved = True
+    assert bpy.ops.cozyverse.apply_story() == {"FINISHED"}
+    rainy_story_id = settings.story_active_id
+    assert rain.animation_data.action.get("cv_story_id") == rainy_story_id
+    assert settings.weather == "RAIN" and settings.rain_amount >= 55.0
+    assert bpy.ops.cozyverse.clear_story() == {"FINISHED"}
+    assert settings.weather == original_weather and settings.rain_amount == original_rain_amount
     settings.practical_temperature = 2300.0
     settings.practical_lights = False
     assert interior.data.energy == 0.0
@@ -245,6 +290,18 @@ try:
     assert imported_wrapper is not None
     assert imported_wrapper.get("cv_provenance") == "user_approved_local_asset"
 
+    settings.story_preset = "QUIET_MORNING"
+    settings.story_start_frame = 5
+    settings.story_end_frame = 96
+    assert bpy.ops.cozyverse.preview_story() == {"FINISHED"}
+    settings.story_approved = True
+    assert bpy.ops.cozyverse.apply_story() == {"FINISHED"}
+    persistent_story_id = settings.story_active_id
+    assert persistent_story_id and bpy.data.collections.get(f"CV_STORY_{persistent_story_id}") is not None
+    persistent_world = bpy.data.collections[settings.active_world_name]
+    animated_leaf = next(obj for obj in persistent_world.all_objects if obj.name.endswith("_Leaves") and obj.animation_data and obj.animation_data.action)
+    assert animated_leaf.animation_data.action.get("cv_story_id") == persistent_story_id
+
     assert "UNDO" in CV_OT_BuildApprovedPlan.bl_options
 
     output_path = repo_root / "work" / "cozyverse_r1_smoke.blend"
@@ -266,6 +323,8 @@ try:
     assert bpy.data.collections.get("CV_WORLD_003").get("cv_reference_mode") == "local_composition_interpretation"
     assert bpy.data.objects.get("Preexisting_User_Object") is not None
     assert bpy.data.objects["CV_Hero_Command_Module"].location.x == edited_x
+    assert bpy.context.scene.cozyverse.story_active_id == persistent_story_id
+    assert bpy.data.collections.get(f"CV_STORY_{persistent_story_id}") is not None
     assert bpy.context.scene.cozyverse.weather == "CLEAR"
     assert bpy.context.scene.cozyverse.time_hour in {12.0, 18.5, 22.0}
     assert bpy.data.collections["CV_WORLD_002"].get("cv_atmosphere_schema") == "3.0"

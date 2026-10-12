@@ -89,6 +89,8 @@ Completed in 0.13.0 with a deliberately narrow reconciliation contract: revision
 
 M6 was approved and implemented in 0.14.0 after reviewing current official Tripo and Meshy contracts. The automated suite uses injected transports and zero-cost mocks; no paid task was submitted. M7 was approved and implemented in 0.15.0. M8 remains blocked on separate approval and a mini-PRD where required.
 
+M8.1 was separately approved and implemented in 0.16.0. Story preview is mutation-free and fingerprinted; apply creates tagged native Actions/keyframes for eligible managed content; protected and manually animated targets are skipped; clearing restores only the matching Story. M8.2 Cinematic Studio and M8.3 Reviewed Export remain separately gated.
+
 ### M6 Optional AI generation and Asset Factory
 
 - Preview and fingerprint an exact provider request with a documented estimated-credit ceiling.

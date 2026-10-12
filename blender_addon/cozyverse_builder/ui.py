@@ -282,6 +282,45 @@ def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
     note.label(text="All generated parts remain normal editable Blender data")
 
 
+def _draw_story(layout: bpy.types.UILayout, settings) -> None:
+    hero = layout.box()
+    hero.label(text="STORY MOMENTS", icon_value=icon_id("icon_story_dark"))
+    hero.label(text=f"Target: {settings.active_world_name or 'Build or select a world'}", icon="OUTLINER_COLLECTION")
+    preview_key = f"story_{settings.story_preset.lower()}"
+    if icon_id(preview_key):
+        hero.template_icon(icon_value=icon_id(preview_key), scale=11.0)
+    hero.prop(settings, "story_preset", text="")
+    timing = layout.box()
+    timing.label(text="TIMELINE", icon_value=icon_id("icon_timeline_dark"))
+    row = timing.row(align=True)
+    row.prop(settings, "story_start_frame")
+    row.prop(settings, "story_end_frame")
+    timing.label(text="24 fps • deterministic three-key loop", icon="INFO")
+    review = layout.box()
+    review.label(text="REVIEW BEFORE ANIMATING", icon="PREVIEW_RANGE")
+    review.operator("cozyverse.preview_story", text="PREVIEW STORY PLAN", icon="VIEWZOOM")
+    if settings.story_preview_json:
+        metrics = review.grid_flow(row_major=True, columns=2, align=True)
+        metrics.label(text=f"Targets: {settings.story_target_count}", icon="OBJECT_DATA")
+        metrics.label(text=f"Keyframes: {settings.story_keyframe_count}", icon="KEYFRAME")
+        metrics.label(text=f"Skipped: {settings.story_skipped_count}", icon="LOCKED")
+        metrics.label(text=f"Frames: {settings.story_start_frame}–{settings.story_end_frame}", icon="TIME")
+        review.prop(settings, "story_approved", icon="CHECKMARK")
+    review.label(text=settings.story_status, icon="INFO")
+    actions = layout.row(align=True)
+    apply_column = actions.column(align=True)
+    apply_column.enabled = settings.story_approved and not settings.story_active_id
+    apply_column.scale_y = 1.5
+    apply_column.operator("cozyverse.apply_story", text="APPLY STORY", icon_value=icon_id("icon_animate_dark"))
+    clear_column = actions.column(align=True)
+    clear_column.enabled = bool(settings.story_active_id)
+    clear_column.operator("cozyverse.clear_story", text="Clear", icon="X")
+    safety = layout.box()
+    safety.label(text="Native editable Actions and keyframes", icon="ACTION")
+    safety.label(text="Protected or already animated objects are skipped", icon="LOCKED")
+    safety.label(text="Preview never changes the scene")
+
+
 def _draw_asset_library(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
     preferences = _addon_preferences(context)
     source = layout.box()
@@ -489,7 +528,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.15.3 Visual UI")
+    about.label(text="CozyVerse 0.16.0 Story Moments")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
@@ -519,6 +558,15 @@ class CV_PT_Atmosphere(_CVChildPanel, bpy.types.Panel):
 
     def draw(self, context: bpy.types.Context) -> None:
         _draw_atmosphere(self.layout, context.scene.cozyverse)
+
+
+class CV_PT_Story(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_story"
+    bl_label = "Story Moments"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_story(self.layout, context.scene.cozyverse)
 
 
 class CV_PT_AssetLibrary(_CVChildPanel, bpy.types.Panel):
@@ -585,7 +633,7 @@ class CV_TEXT_PT_Prompt(bpy.types.Panel):
         layout.label(text="Then choose Build Editable World.", icon="INFO")
 
 
-_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_AssetLibrary, CV_PT_ImageToWorld, CV_PT_Atmosphere, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
+_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_AssetLibrary, CV_PT_ImageToWorld, CV_PT_Atmosphere, CV_PT_Story, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
 
 
 def register() -> None:

@@ -42,6 +42,12 @@ def _update_atmosphere_preset(self, context: bpy.types.Context) -> None:
     _update_atmosphere(self, context)
 
 
+def _invalidate_story_preview(self, _context: bpy.types.Context) -> None:
+    self.story_approved = False
+    self.story_fingerprint = ""
+    self.story_status = "Story settings changed; preview again"
+
+
 class CV_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
 
@@ -273,9 +279,10 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         items=(
             ("CREATE", "Create", "Create an editable local demonstration", "MOD_BUILD", 0),
             ("ATMOSPHERE", "Atmosphere", "Control lighting, time, and rain", "LIGHT_SUN", 1),
-            ("GENERATE", "Generate", "Preview and approve optional 3D generation", "MESH_ICOSPHERE", 2),
-            ("ACTIVITY", "Activity", "Review current status and local activity", "INFO", 3),
-            ("SETTINGS", "Settings", "Configure local and future provider settings", "PREFERENCES", 4),
+            ("STORY", "Story", "Stage an optional editable Story Moment", "ACTION", 2),
+            ("GENERATE", "Generate", "Preview and approve optional 3D generation", "MESH_ICOSPHERE", 3),
+            ("ACTIVITY", "Activity", "Review current status and local activity", "INFO", 4),
+            ("SETTINGS", "Settings", "Configure local and future provider settings", "PREFERENCES", 5),
         ),
         default="CREATE",
     )
@@ -385,6 +392,22 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     wetness_amount: FloatProperty(name="Wetness", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
     season: EnumProperty(name="Season", items=(("SPRING", "Spring", "Fresh green foliage"), ("SUMMER", "Summer", "Deep green foliage"), ("AUTUMN", "Autumn", "Warm orange foliage"), ("WINTER", "Winter", "Pale winter foliage")), default="SUMMER", update=_update_atmosphere)
     weather_quality: EnumProperty(name="Preview Quality", items=(("LOW", "Low", "Fastest viewport preview"), ("MEDIUM", "Medium", "Balanced preview"), ("HIGH", "High", "Denser precipitation preview")), default="MEDIUM", update=_update_atmosphere)
+    story_preset: EnumProperty(
+        name="Story Moment",
+        items=(("QUIET_MORNING", "Quiet Morning", "Gentle idle motion and foliage"), ("BUSY_MARKET", "Busy Market", "Livelier character and environment motion"), ("RAINY_EVENING", "Rainy Evening", "Rain travel and warm practical-light pulse")),
+        default="QUIET_MORNING",
+        update=_invalidate_story_preview,
+    )
+    story_start_frame: IntProperty(name="Start", default=1, min=0, max=100000, update=_invalidate_story_preview)
+    story_end_frame: IntProperty(name="End", default=120, min=1, max=100000, update=_invalidate_story_preview)
+    story_preview_json: StringProperty(name="Story Preview", default="", options={"HIDDEN"})
+    story_fingerprint: StringProperty(name="Story Fingerprint", default="", options={"HIDDEN"})
+    story_approved: BoolProperty(name="I reviewed this Story plan", default=False)
+    story_status: StringProperty(name="Story Status", default="Choose a world and preview a Story Moment")
+    story_target_count: IntProperty(name="Targets", default=0, min=0)
+    story_skipped_count: IntProperty(name="Skipped", default=0, min=0)
+    story_keyframe_count: IntProperty(name="Keyframes", default=0, min=0)
+    story_active_id: StringProperty(name="Active Story", default="")
     generation_prompt: StringProperty(
         name="Asset Prompt",
         description="Describe one missing 3D asset for Tripo or Meshy",

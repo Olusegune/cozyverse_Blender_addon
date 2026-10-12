@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.0
+
+- Added the approved M8.1 Story Moments workspace with large supplied artwork and Story/Animate/Timeline icons.
+- Added zero-mutation preview plans with exact target, skip, frame, and keyframe counts plus fingerprint invalidation.
+- Added deterministic Quiet Morning, Busy Market, and Rainy Evening native Blender Actions for characters, foliage, precipitation, and practical lights.
+- Added per-world Story state, save/reopen persistence, locked/manual-animation preservation, and targeted Clear Story restoration.
+- Added pure-Python and Blender integration tests; camera sequencing and export remain out of scope.
+
 ## 0.15.3
 
 - Added and registered the supplied individual dark/light Story, Animate, Timeline, Shot, and Export icons.
