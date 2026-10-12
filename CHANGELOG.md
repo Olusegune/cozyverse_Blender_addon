@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0
+
+- Completed Milestone 4 Atmosphere Lab and Cozy Engine controls without rebuilding geometry.
+- Added Bright Day and Blue Hour for six curated atmosphere looks.
+- Added scene exposure plus practical-light enable, intensity, and 1,800–6,500 K color-temperature controls.
+- Stored versioned atmosphere data independently on every CozyVerse world.
+- Added saved-look loading when selecting a world and an explicit Load Saved action.
+- Added safe migration from atmosphere preset schema 1 to schema 2.
+- Kept rain as the existing demonstration and left fog, wind, wetness, and animated weather out of this milestone.
+- Added pure-Python and Blender integration coverage for color temperature, exposure, practical lights, per-world looks, persistence, and migration.
+
 ## 0.11.0
 
 - Added eight distinct procedural composition families: village, city, cafe, nature, space outpost, market, farm, and fantasy.

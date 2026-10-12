@@ -30,6 +30,9 @@ def _update_atmosphere_preset(self, context: bpy.types.Context) -> None:
     self.interior_intensity = values.interior_intensity
     self.weather = values.weather
     self.rain_amount = values.rain_amount
+    self.exposure = values.exposure
+    self.practical_temperature = values.practical_temperature
+    self.practical_lights = values.practical_lights
     _update_atmosphere(self, context)
 
 
@@ -253,6 +256,8 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
             ("RAINY_CAFE", "Rainy Cafe", "Evening practical lights and visible rain"),
             ("MOONLIT", "Moonlit", "Cool low-light night"),
             ("MISTY_DAWN", "Misty Dawn", "Soft dawn lighting; fog remains unsupported"),
+            ("BRIGHT_DAY", "Bright Day", "Clean daylight with practical lights off"),
+            ("BLUE_HOUR", "Blue Hour", "Cool twilight with warm practical lights"),
             ("CUSTOM", "Custom", "Current custom values"),
         ),
         default="GOLDEN_HOUR",
@@ -297,6 +302,32 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         min=0.0,
         max=100.0,
         subtype="PERCENTAGE",
+        update=_update_atmosphere,
+    )
+    practical_lights: BoolProperty(
+        name="Practical Lights",
+        description="Enable or disable the active world's editable interior lights",
+        default=True,
+        update=_update_atmosphere,
+    )
+    practical_temperature: FloatProperty(
+        name="Light Temperature",
+        description="Color temperature of practical lights in Kelvin",
+        default=2700.0,
+        min=1800.0,
+        max=6500.0,
+        step=100.0,
+        precision=0,
+        update=_update_atmosphere,
+    )
+    exposure: FloatProperty(
+        name="Exposure",
+        description="Scene color-management exposure in stops",
+        default=0.0,
+        min=-3.0,
+        max=3.0,
+        step=10.0,
+        precision=2,
         update=_update_atmosphere,
     )
     weather: EnumProperty(

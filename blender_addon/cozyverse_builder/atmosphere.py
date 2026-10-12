@@ -6,7 +6,7 @@ import math
 
 import bpy
 
-from .core.atmosphere_spec import sun_azimuth_degrees, sun_elevation_degrees, warmth_rgb
+from .core.atmosphere_spec import AtmosphereValues, kelvin_rgb, serialize_preset, sun_azimuth_degrees, sun_elevation_degrees, warmth_rgb
 
 
 SUN_NAME = "CV_Sun"
@@ -18,6 +18,7 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
     """Update existing CozyVerse lights, world nodes, and rain preview."""
     changed = False
     active_world = scene.get("cv_active_world", "")
+    world_collection = bpy.data.collections.get(active_world) if active_world else None
     suns = [
         obj
         for obj in bpy.data.objects
@@ -64,8 +65,8 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
             and isinstance(obj.data, bpy.types.Light)
             and (not active_world or obj.get("cv_world_root") == active_world)
         ):
-            obj.data.energy = (settings.interior_intensity / 100.0) * 900.0
-            obj.data.color = (1.0, 0.42, 0.12)
+            obj.data.energy = (settings.interior_intensity / 100.0) * 900.0 if settings.practical_lights else 0.0
+            obj.data.color = kelvin_rgb(settings.practical_temperature)
             changed = True
 
     rain_objects = [
@@ -84,5 +85,23 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
         rain.scale.z = 0.6 + (settings.rain_amount / 100.0) * 0.8
         rain.color = (0.18, 0.55, 1.0, 1.0)
         changed = True
+
+    scene.view_settings.exposure = settings.exposure
+    if world_collection is not None and world_collection.get("cv_managed"):
+        values = AtmosphereValues(
+            settings.time_hour,
+            settings.sun_intensity,
+            settings.warmth,
+            settings.ambient_intensity,
+            settings.interior_intensity,
+            settings.weather,
+            settings.rain_amount,
+            settings.exposure,
+            settings.practical_temperature,
+            settings.practical_lights,
+        )
+        world_collection["cv_atmosphere_schema"] = "2.0"
+        world_collection["cv_atmosphere_preset"] = settings.atmosphere_preset
+        world_collection["cv_atmosphere_values"] = serialize_preset(values)
 
     return changed

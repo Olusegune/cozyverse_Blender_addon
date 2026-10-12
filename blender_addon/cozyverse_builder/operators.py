@@ -9,7 +9,7 @@ from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
 from bpy_extras.io_utils import ImportHelper
 
 from .atmosphere import apply_atmosphere
-from .core.atmosphere_spec import AtmosphereValues, PRESETS, serialize_preset
+from .core.atmosphere_spec import AtmosphereValues, PRESETS, deserialize_preset, serialize_preset
 from .core.demo_spec import DEFAULT_PROMPT
 from .world_builder import build_offline_world
 from .providers.contracts import build_plan
@@ -66,6 +66,35 @@ def _world_objects(collection):
     for child in collection.children:
         objects.extend(_world_objects(child))
     return objects
+
+
+def _atmosphere_from_settings(settings) -> AtmosphereValues:
+    return AtmosphereValues(
+        settings.time_hour,
+        settings.sun_intensity,
+        settings.warmth,
+        settings.ambient_intensity,
+        settings.interior_intensity,
+        settings.weather,
+        settings.rain_amount,
+        settings.exposure,
+        settings.practical_temperature,
+        settings.practical_lights,
+    )
+
+
+def _set_atmosphere_values(settings, values: AtmosphereValues, preset: str = "CUSTOM") -> None:
+    settings.atmosphere_preset = preset if preset in PRESETS else "CUSTOM"
+    settings.time_hour = values.time_hour
+    settings.sun_intensity = values.sun_intensity
+    settings.warmth = values.warmth
+    settings.ambient_intensity = values.ambient_intensity
+    settings.interior_intensity = values.interior_intensity
+    settings.weather = values.weather
+    settings.rain_amount = values.rain_amount
+    settings.exposure = values.exposure
+    settings.practical_temperature = values.practical_temperature
+    settings.practical_lights = values.practical_lights
 
 
 class CV_OT_StartOnboarding(bpy.types.Operator):
@@ -193,6 +222,16 @@ class CV_OT_SelectWorld(bpy.types.Operator):
             context.view_layer.objects.active = objects[0]
         context.scene.cozyverse.active_world_name = world.name
         context.scene["cv_active_world"] = world.name
+        saved_atmosphere = world.get("cv_atmosphere_values")
+        if saved_atmosphere:
+            try:
+                _set_atmosphere_values(
+                    context.scene.cozyverse,
+                    deserialize_preset(saved_atmosphere),
+                    world.get("cv_atmosphere_preset", "CUSTOM"),
+                )
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                context.scene.cozyverse.recovery_hint = "This world's older atmosphere data could not be loaded; save a new look to replace it."
         if context.area is not None and context.area.type == "VIEW_3D" and objects:
             bpy.ops.view3d.view_selected(use_all_regions=False)
         context.scene.cozyverse.status = f"Selected {world.name}: {len(objects)} objects"
@@ -802,14 +841,7 @@ class CV_OT_ResetAtmosphere(bpy.types.Operator):
     def execute(self, context: bpy.types.Context):
         settings = context.scene.cozyverse
         values = PRESETS["GOLDEN_HOUR"]
-        settings.atmosphere_preset = "GOLDEN_HOUR"
-        settings.time_hour = values.time_hour
-        settings.sun_intensity = values.sun_intensity
-        settings.warmth = values.warmth
-        settings.ambient_intensity = values.ambient_intensity
-        settings.interior_intensity = values.interior_intensity
-        settings.weather = values.weather
-        settings.rain_amount = values.rain_amount
+        _set_atmosphere_values(settings, values, "GOLDEN_HOUR")
         apply_atmosphere(context.scene, settings)
         settings.status = "Atmosphere reset to Golden Hour"
         return {"FINISHED"}
@@ -823,18 +855,49 @@ class CV_OT_SaveAtmospherePreset(bpy.types.Operator):
 
     def execute(self, context: bpy.types.Context):
         settings = context.scene.cozyverse
-        values = AtmosphereValues(
-            settings.time_hour,
-            settings.sun_intensity,
-            settings.warmth,
-            settings.ambient_intensity,
-            settings.interior_intensity,
-            settings.weather,
-            settings.rain_amount,
-        )
+        values = _atmosphere_from_settings(settings)
         context.scene["cv_custom_atmosphere_preset"] = serialize_preset(values)
         settings.atmosphere_preset = "CUSTOM"
-        settings.status = "Custom atmosphere preset saved in this scene"
+        world = bpy.data.collections.get(settings.active_world_name)
+        if world is not None and world.get("cv_managed"):
+            world["cv_atmosphere_preset"] = "CUSTOM"
+            world["cv_atmosphere_values"] = serialize_preset(values)
+        settings.status = "Custom atmosphere saved to this scene and active world"
+        return {"FINISHED"}
+
+
+class CV_OT_LoadAtmospherePreset(bpy.types.Operator):
+    bl_idname = "cozyverse.load_atmosphere_preset"
+    bl_label = "Load Saved Look"
+    bl_description = "Load and migrate the active world's saved atmosphere, or the scene custom preset"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        world = bpy.data.collections.get(settings.active_world_name)
+        payload = world.get("cv_atmosphere_values") if world is not None else None
+        source = world.name if payload and world is not None else "scene custom preset"
+        if not payload:
+            payload = context.scene.get("cv_custom_atmosphere_preset")
+        if not payload:
+            settings.status = "No saved atmosphere look is available"
+            self.report({"WARNING"}, settings.status)
+            return {"CANCELLED"}
+        try:
+            values = deserialize_preset(payload)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            settings.status = f"Saved atmosphere is invalid: {exc}"
+            self.report({"ERROR"}, settings.status)
+            return {"CANCELLED"}
+        _set_atmosphere_values(settings, values, "CUSTOM")
+        migrated = serialize_preset(values)
+        context.scene["cv_custom_atmosphere_preset"] = migrated
+        if world is not None and world.get("cv_managed"):
+            world["cv_atmosphere_schema"] = "2.0"
+            world["cv_atmosphere_preset"] = "CUSTOM"
+            world["cv_atmosphere_values"] = migrated
+        apply_atmosphere(context.scene, settings)
+        settings.status = f"Loaded atmosphere from {source}"
         return {"FINISHED"}
 
 
@@ -1011,6 +1074,7 @@ _CLASSES = (
     CV_OT_ApplyAtmosphere,
     CV_OT_ResetAtmosphere,
     CV_OT_SaveAtmospherePreset,
+    CV_OT_LoadAtmospherePreset,
     CV_OT_ClearApiKey,
     CV_OT_ClearGenerationKey,
     CV_OT_ValidateGenerationSettings,

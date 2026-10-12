@@ -45,9 +45,11 @@ The **Retro Sci-Fi** quick-start button fills the world-description fields and s
 
 ### Atmosphere
 
-Choose Golden Hour, Rainy Cafe, Moonlit, or Misty Dawn, or adjust the controls directly. Time of Day rotates the real `CV_Sun`; the sunlight, warmth, ambient, and interior controls update Blender lights and World nodes. Clear hides `CV_Rain_Preview`; Rain displays its editable rain-streak mesh. Fog, wind, and wetness are visible but disabled because R1 does not implement them.
+Choose Golden Hour, Rainy Cafe, Moonlit, Misty Dawn, Bright Day, or Blue Hour, or adjust the controls directly. Time of Day rotates the real `CV_Sun`; sunlight, warmth, ambient light, and Exposure update Blender light, World, and color-management properties. Practical Lights can be enabled independently, with editable intensity and color temperature from 1,800 K to 6,500 K. These changes never rebuild geometry.
 
-The controls update immediately. **Apply** reruns the complete mapping, **Reset** returns to Golden Hour, and **Save Custom Preset** stores versioned JSON in the current scene.
+Atmosphere changes target the active world shown at the top of the panel. The controls update immediately. **Apply to Active** reruns the complete mapping, **Reset** returns to Golden Hour, **Save Look** stores versioned JSON in the scene and active world, and **Load Saved** restores it. Selecting a different world in **Activity & Safety** restores that world's saved look. Version 1 look data is validated and migrated to schema 2 when loaded.
+
+Clear hides `CV_Rain_Preview`; Rain displays its editable rain-streak mesh. This remains a legacy visual demonstration. Fog, wind, wetness, and animated weather transitions remain disabled and are outside Milestone 4.
 
 ### Image to World
 
@@ -112,4 +114,4 @@ Use **Clear Key** before screen sharing or handing the running Blender session t
 - No paid generation service is implemented.
 - Provider fields do not test remote credentials.
 - Multiline prompts use a Blender Text datablock rather than an embedded sidebar text area.
-- Local asset scanning begins only after recovery milestone R2 is approved.
+- Local asset matching uses filename and folder metadata; it does not generate thumbnails yet.

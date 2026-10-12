@@ -16,13 +16,18 @@ class AtmosphereValues:
     interior_intensity: float
     weather: str
     rain_amount: float
+    exposure: float = 0.0
+    practical_temperature: float = 2700.0
+    practical_lights: bool = True
 
 
 PRESETS = {
-    "GOLDEN_HOUR": AtmosphereValues(18.0, 55.0, 88.0, 38.0, 70.0, "CLEAR", 0.0),
-    "RAINY_CAFE": AtmosphereValues(19.0, 25.0, 76.0, 28.0, 95.0, "RAIN", 45.0),
-    "MOONLIT": AtmosphereValues(22.0, 12.0, 18.0, 16.0, 62.0, "CLEAR", 0.0),
-    "MISTY_DAWN": AtmosphereValues(6.5, 32.0, 58.0, 42.0, 35.0, "CLEAR", 0.0),
+    "GOLDEN_HOUR": AtmosphereValues(18.0, 55.0, 88.0, 38.0, 70.0, "CLEAR", 0.0, 0.25, 2400.0),
+    "RAINY_CAFE": AtmosphereValues(19.0, 25.0, 76.0, 28.0, 95.0, "RAIN", 45.0, 0.5, 2200.0),
+    "MOONLIT": AtmosphereValues(22.0, 12.0, 18.0, 16.0, 62.0, "CLEAR", 0.0, 0.8, 3200.0),
+    "MISTY_DAWN": AtmosphereValues(6.5, 32.0, 58.0, 42.0, 35.0, "CLEAR", 0.0, 0.35, 3000.0),
+    "BRIGHT_DAY": AtmosphereValues(12.0, 72.0, 42.0, 55.0, 0.0, "CLEAR", 0.0, -0.1, 4000.0, False),
+    "BLUE_HOUR": AtmosphereValues(20.0, 18.0, 24.0, 24.0, 82.0, "CLEAR", 0.0, 0.65, 2600.0),
 }
 
 
@@ -48,14 +53,24 @@ def warmth_rgb(warmth: float) -> tuple[float, float, float]:
     return tuple(cool[index] * (1.0 - factor) + warm[index] * factor for index in range(3))
 
 
+def kelvin_rgb(temperature: float) -> tuple[float, float, float]:
+    """Approximate a 1,800-6,500 K practical-light color without dependencies."""
+    value = clamp(temperature, 1800.0, 6500.0) / 100.0
+    red = 255.0 if value <= 66.0 else 329.698727446 * ((value - 60.0) ** -0.1332047592)
+    green = 99.4708025861 * math.log(value) - 161.1195681661 if value <= 66.0 else 288.1221695283 * ((value - 60.0) ** -0.0755148492)
+    blue = 255.0 if value >= 66.0 else (0.0 if value <= 19.0 else 138.5177312231 * math.log(value - 10.0) - 305.044792731)
+    return tuple(clamp(channel, 0.0, 255.0) / 255.0 for channel in (red, green, blue))
+
+
 def serialize_preset(values: AtmosphereValues) -> str:
-    payload = {"schema_version": "1.0", **asdict(values)}
+    payload = {"schema_version": "2.0", **asdict(values)}
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 def deserialize_preset(payload: str) -> AtmosphereValues:
     data = json.loads(payload)
-    if data.get("schema_version") != "1.0":
+    schema_version = data.get("schema_version")
+    if schema_version not in {"1.0", "2.0"}:
         raise ValueError("Unsupported atmosphere preset schema")
     weather = data.get("weather")
     if weather not in {"CLEAR", "RAIN"}:
@@ -68,5 +83,7 @@ def deserialize_preset(payload: str) -> AtmosphereValues:
         clamp(data["interior_intensity"], 0.0, 100.0),
         weather,
         clamp(data["rain_amount"], 0.0, 100.0),
+        clamp(data.get("exposure", 0.0), -3.0, 3.0),
+        clamp(data.get("practical_temperature", 2700.0), 1800.0, 6500.0),
+        bool(data.get("practical_lights", True)),
     )
-

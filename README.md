@@ -1,6 +1,6 @@
 # CozyVerse Builder
 
-CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.11.0 adds deterministic prompt-dependent procedural variety across eight composition families, style-specific architecture, characters, set dressing, and composition-aware cameras.
+CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.12.0 completes the Atmosphere Lab milestone with per-world lighting looks, practical-light controls, exposure, persistence, and preset migration.
 
 The foundation build provides:
 
@@ -18,7 +18,8 @@ The foundation build provides:
 - masked session-only Director, Tripo, and Meshy credential inputs for future provider adapters;
 - reviewable, fingerprinted Tripo/Meshy request plans and a zero-cost mock generation workflow;
 - a deterministic sari-sari-store diorama made from editable Blender-native objects;
-- functional time, sunlight, warmth, ambient-light, interior-light, and clear/rain controls;
+- six functional atmosphere looks with time, sunlight, warmth, ambient light, exposure, practical-light intensity and 1,800–6,500 K color controls;
+- per-world atmosphere persistence, saved-look loading, and automatic migration of version 1 presets;
 - clean registration and unregistration;
 - no network access, provider code, dynamic code execution, or paid requests.
 

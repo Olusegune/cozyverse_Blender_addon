@@ -76,6 +76,8 @@ The task directory contained only empty `work` and `outputs` directories. It was
 - Change sunlight, artistic time, practical lights, and approved style settings without rebuilding geometry.
 - Save, reload, reset, and migrate presets; keep weather effects outside this milestone.
 
+Completed in 0.12.0. The active-world contract now covers Sun rotation/energy/color, World background strength/color, scene exposure, and Point-light energy/color temperature. Each world stores schema-versioned values; schema 1 values migrate to schema 2 on load. The earlier editable rain demonstration remains available, but no additional weather system was added.
+
 ### M5 Safe revisions and beta hardening
 
 - Preview changed, created, deleted, and skipped objects before apply.
@@ -84,4 +86,3 @@ The task directory contained only empty `work` and `outputs` directories. It was
 - Complete the golden path with actual Blender evidence and no high-severity data-loss or security defect.
 
 Later milestones M6-M8 remain blocked on separate approval, provider/license verification, and mini-PRDs where required.
-

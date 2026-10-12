@@ -101,6 +101,16 @@ try:
     settings.rain_amount = 45.0
     assert bpy.ops.cozyverse.save_atmosphere_preset() == {"FINISHED"}
     assert "cv_custom_atmosphere_preset" in bpy.context.scene
+    assert '"schema_version":"2.0"' in bpy.context.scene["cv_custom_atmosphere_preset"]
+    assert world.get("cv_atmosphere_schema") == "2.0"
+    settings.practical_temperature = 2300.0
+    settings.practical_lights = False
+    assert interior.data.energy == 0.0
+    settings.practical_lights = True
+    assert interior.data.energy > 0.0
+    settings.exposure = 0.75
+    assert bpy.context.scene.view_settings.exposure == 0.75
+    assert bpy.ops.cozyverse.save_atmosphere_preset() == {"FINISHED"}
 
     generation_plan = build_plan("TRIPO", "a stylized low-poly street food cart")
     settings.generation_prompt = generation_plan.prompt
@@ -125,6 +135,20 @@ try:
     assert bpy.ops.cozyverse.create_local_demo() == {"FINISHED"}
     assert bpy.data.collections.get("CV_WORLD_002") is not None
     assert bpy.data.collections["CV_WORLD_002"].get("cv_architecture_treatment") == "TURRET"
+    settings.exposure = -1.0
+    settings.practical_temperature = 6000.0
+    assert bpy.ops.cozyverse.save_atmosphere_preset() == {"FINISHED"}
+    assert bpy.ops.cozyverse.select_world(world_name="CV_WORLD") == {"FINISHED"}
+    assert settings.exposure == 0.75
+    assert settings.practical_temperature == 2300.0
+    assert bpy.ops.cozyverse.select_world(world_name="CV_WORLD_002") == {"FINISHED"}
+    assert settings.exposure == -1.0
+    assert settings.practical_temperature == 6000.0
+    legacy = '{"schema_version":"1.0","time_hour":10,"sun_intensity":40,"warmth":50,"ambient_intensity":30,"interior_intensity":20,"weather":"CLEAR","rain_amount":0}'
+    bpy.data.collections["CV_WORLD_002"]["cv_atmosphere_values"] = legacy
+    assert bpy.ops.cozyverse.load_atmosphere_preset() == {"FINISHED"}
+    assert settings.time_hour == 10.0
+    assert '"schema_version":"2.0"' in bpy.data.collections["CV_WORLD_002"]["cv_atmosphere_values"]
     assert bpy.data.objects.get("CV_Hero_Command_Module") is store
     assert store.location.x == edited_x
     assert tuple(store.data.materials[0].diffuse_color) == first_material_color
@@ -181,8 +205,9 @@ try:
     assert bpy.data.collections.get("CV_WORLD_003").get("cv_reference_mode") == "local_palette_interpretation"
     assert bpy.data.objects.get("Preexisting_User_Object") is not None
     assert bpy.data.objects["CV_Hero_Command_Module"].location.x == edited_x
-    assert bpy.context.scene.cozyverse.weather == "RAIN"
-    assert bpy.context.scene.cozyverse.rain_amount == 45.0
+    assert bpy.context.scene.cozyverse.weather == "CLEAR"
+    assert bpy.context.scene.cozyverse.time_hour == 10.0
+    assert bpy.data.collections["CV_WORLD_002"].get("cv_atmosphere_schema") == "2.0"
 finally:
     addon.unregister()
 

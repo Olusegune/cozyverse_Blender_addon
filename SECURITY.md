@@ -1,6 +1,6 @@
 # Credential and Data Safety
 
-CozyVerse Builder 0.11.0 keeps live provider submission disabled. Procedural variety is deterministic local code driven by validated scene-plan data; no generated Python is executed. Asset imports remain approval-gated, imported animation drivers are removed, reference images remain local, and no provider request is made.
+CozyVerse Builder 0.12.0 keeps live provider submission disabled. Procedural variety and Atmosphere Lab mappings are deterministic local code driven by validated scene-plan and preset data; no generated Python is executed. Asset imports remain approval-gated, imported animation drivers are removed, reference images remain local, and no provider request is made.
 
 Director, Tripo, and Meshy API keys entered in the sidebar are runtime-only Blender properties marked `SKIP_SAVE`. They are masked in the interface and excluded from scene properties. Automated Blender testing verifies that known secret sentinels do not appear in the saved `.blend` bytes.
 

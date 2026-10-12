@@ -165,25 +165,38 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
 def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     header = layout.box()
     header.label(text="ATMOSPHERE LAB", icon="LIGHT_SUN")
-    header.label(text="Controls update the scene immediately")
+    header.label(text=f"Target: {settings.active_world_name or 'Build or select a world'}", icon="OUTLINER_COLLECTION")
+    header.label(text="Live, editable Blender lights • no rebuild")
     lighting = layout.box()
-    for prop in ("atmosphere_preset", "time_hour", "sun_intensity", "warmth", "ambient_intensity", "interior_intensity"):
-        lighting.prop(settings, prop, slider=prop != "atmosphere_preset")
+    lighting.label(text="SKY & SUN", icon="WORLD")
+    lighting.prop(settings, "atmosphere_preset", text="Look")
+    for prop in ("time_hour", "sun_intensity", "warmth", "ambient_intensity", "exposure"):
+        lighting.prop(settings, prop, slider=True)
+    practical = layout.box()
+    practical.label(text="PRACTICAL LIGHTS", icon="LIGHT_POINT")
+    practical.prop(settings, "practical_lights")
+    controls = practical.column(align=True)
+    controls.enabled = settings.practical_lights
+    controls.prop(settings, "interior_intensity", slider=True)
+    controls.prop(settings, "practical_temperature", slider=True)
+    controls.label(text="1,800–6,500 K • native Point lights")
     weather = layout.box()
-    weather.label(text="WEATHER PREVIEW", icon="FORCE_WIND")
+    weather.label(text="LEGACY RAIN DEMO", icon="FORCE_WIND")
     weather.prop(settings, "weather", expand=True)
     rain = weather.row()
     rain.enabled = settings.weather == "RAIN"
     rain.prop(settings, "rain_amount", slider=True)
     advanced = weather.column(align=True)
     advanced.enabled = False
-    advanced.label(text="Advanced weather arrives after R1", icon="LOCKED")
+    advanced.label(text="Advanced weather is outside Milestone 4", icon="LOCKED")
     for prop in ("fog_amount", "wind_amount", "wetness_amount"):
         advanced.prop(settings, prop, slider=True)
     actions = layout.row(align=True)
-    actions.operator("cozyverse.apply_atmosphere", text="Apply", icon="CHECKMARK")
+    actions.operator("cozyverse.apply_atmosphere", text="Apply to Active", icon="CHECKMARK")
     actions.operator("cozyverse.reset_atmosphere", text="Reset", icon="LOOP_BACK")
-    layout.operator("cozyverse.save_atmosphere_preset", text="Save Custom Preset", icon="FILE_TICK")
+    persistence = layout.row(align=True)
+    persistence.operator("cozyverse.save_atmosphere_preset", text="Save Look", icon="FILE_TICK")
+    persistence.operator("cozyverse.load_atmosphere_preset", text="Load Saved", icon="IMPORT")
 
 
 def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
@@ -356,7 +369,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     generation.operator("cozyverse.validate_generation_settings", text="Check Setup Locally", icon="CHECKMARK")
     note = generation.column(align=True)
     note.enabled = False
-    note.label(text="Generation requests are not enabled in R1", icon="LOCKED")
+    note.label(text="Live generation requests are not enabled", icon="LOCKED")
     note.label(text="Future jobs require cost and consent review")
     assets = layout.box()
     assets.label(text="YOUR ASSET SOURCES", icon="ASSET_MANAGER")
@@ -373,7 +386,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.11.0 Procedural Variety")
+    about.label(text="CozyVerse 0.12.0 Atmosphere Lab")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
