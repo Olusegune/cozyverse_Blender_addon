@@ -42,7 +42,7 @@ try:
     bpy.context.window_manager.cozyverse_secrets.api_key = secret_sentinel
     bpy.context.window_manager.cozyverse_secrets.tripo_api_key = secret_sentinel + "-tripo"
     bpy.context.window_manager.cozyverse_secrets.meshy_api_key = secret_sentinel + "-meshy"
-    settings.prompt = "Create a tiny Manila sari-sari store with a road, tropical plants and warm sunset."
+    settings.prompt = "Create a retro sci-fi lunar service station with a road, alien plants and warm sunset."
     assert bpy.ops.cozyverse.edit_multiline_prompt() == {"FINISHED"}
     settings.prompt_text.write("\nInclude a welcoming storefront and evening atmosphere.")
     assert bpy.ops.cozyverse.use_multiline_prompt() == {"FINISHED"}
@@ -65,12 +65,14 @@ try:
     world = bpy.data.collections.get("CV_WORLD")
     assert world is not None
     child_names = {child.name for child in world.children}
-    assert {"CV_BASE", "CV_ARCHITECTURE", "CV_PROPS", "CV_VEGETATION", "CV_LIGHTS", "CV_CAMERAS", "CV_ATMOSPHERE"} <= child_names
-    for object_name in ("CV_Diorama_Base", "CV_Road", "CV_SariSari_Store", "CV_Sun", "CV_Camera", "CV_Rain_Preview"):
+    assert {"CV_BASE", "CV_ARCHITECTURE", "CV_PROPS", "CV_VEGETATION", "CV_CHARACTERS", "CV_LIGHTS", "CV_CAMERAS", "CV_ATMOSPHERE"} <= child_names
+    for object_name in ("CV_Diorama_Base", "CV_Landing_Pad", "CV_Hero_Command_Module", "CV_Sun", "CV_Camera", "CV_Rain_Preview"):
         assert bpy.data.objects.get(object_name) is not None, object_name
     assert bpy.context.scene.camera is bpy.data.objects["CV_Camera"]
     assert world.get("cv_style_label") == "Retro Sci-Fi"
     assert "space" in world.get("cv_asset_keywords")
+    assert world.get("cv_composition_family") == "SPACE_OUTPOST"
+    assert len(world.children["CV_CHARACTERS"].objects) >= 4
 
     sun = bpy.data.objects["CV_Sun"]
     settings.time_hour = 12.0
@@ -110,7 +112,7 @@ try:
     assert mock_asset is not None and mock_asset.get("cv_provider_mock") is True
     assert settings.generation_approved is False
 
-    store = bpy.data.objects["CV_SariSari_Store"]
+    store = bpy.data.objects["CV_Hero_Command_Module"]
     store.location.x += 0.75
     edited_x = store.location.x
     assert bpy.ops.cozyverse.inspect_manual_edits() == {"FINISHED"}
@@ -118,10 +120,14 @@ try:
     store.select_set(True)
     assert bpy.ops.cozyverse.lock_selected_objects() == {"FINISHED"}
     assert store.get("cv_locked") is True
+    first_material_color = tuple(store.data.materials[0].diffuse_color)
+    settings.preset = "GOTHIC"
     assert bpy.ops.cozyverse.create_local_demo() == {"FINISHED"}
     assert bpy.data.collections.get("CV_WORLD_002") is not None
-    assert bpy.data.objects.get("CV_SariSari_Store") is store
+    assert bpy.data.collections["CV_WORLD_002"].get("cv_architecture_treatment") == "TURRET"
+    assert bpy.data.objects.get("CV_Hero_Command_Module") is store
     assert store.location.x == edited_x
+    assert tuple(store.data.materials[0].diffuse_color) == first_material_color
     assert bpy.data.objects.get("Preexisting_User_Object") is preexisting
 
     settings.prompt = ""
@@ -174,7 +180,7 @@ try:
     assert bpy.data.collections.get("CV_WORLD_002") is not None
     assert bpy.data.collections.get("CV_WORLD_003").get("cv_reference_mode") == "local_palette_interpretation"
     assert bpy.data.objects.get("Preexisting_User_Object") is not None
-    assert bpy.data.objects["CV_SariSari_Store"].location.x == edited_x
+    assert bpy.data.objects["CV_Hero_Command_Module"].location.x == edited_x
     assert bpy.context.scene.cozyverse.weather == "RAIN"
     assert bpy.context.scene.cozyverse.rain_amount == 45.0
 finally:

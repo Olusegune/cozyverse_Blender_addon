@@ -11,6 +11,7 @@ from mathutils import Vector
 
 from .atmosphere import RAIN_NAME, SUN_NAME, apply_atmosphere
 from .core.style_spec import STYLE_PRESETS
+from .core.composition_spec import layout_points, profile_for, prompt_seed
 
 
 WORLD_ROOT = "CV_WORLD"
@@ -34,7 +35,8 @@ def _new_collection(name: str, parent: bpy.types.Collection) -> bpy.types.Collec
 
 
 def _material(name: str, color: tuple[float, float, float, float], metallic: float = 0.0) -> bpy.types.Material:
-    material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    # Every world version owns its materials so later styles never recolor earlier worlds.
+    material = bpy.data.materials.new(name)
     material.diffuse_color = color
     material.metallic = metallic
     material.roughness = 0.72
@@ -92,6 +94,46 @@ def _plant(name: str, location, scale: float, collection, trunk_mat, leaf_mat) -
     crown = bpy.context.object
     crown.scale.z = 1.18
     _finish_mesh(crown, f"{name}_Leaves", collection, leaf_mat, 0.0)
+
+
+def _sphere(name, location, radius, collection, material, scale=(1.0, 1.0, 1.0)):
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=radius, location=location)
+    obj = bpy.context.object
+    obj.scale = scale
+    return _finish_mesh(obj, name, collection, material, 0.0)
+
+
+def _build_architecture(form, name, location, scale, collection, wall, roof, trim, glass):
+    x, y, _ = location
+    if form == "MODULE":
+        body = _cylinder(name, (x, y, 0.9 * scale), 0.95 * scale, 1.8 * scale, collection, wall)
+        _sphere(f"{name}_Dome", (x, y, 1.8 * scale), 0.8 * scale, collection, glass, (1.0, 1.0, 0.45))
+        _cylinder(f"{name}_Antenna", (x, y, 2.7 * scale), 0.06 * scale, 1.4 * scale, collection, trim)
+        return body
+    if form == "ROCK":
+        return _sphere(name, (x, y, 0.65 * scale), 0.9 * scale, collection, wall, (1.3, 0.9, 0.7))
+    if form in {"TURRET", "STALL"}:
+        body = _cylinder(name, (x, y, 0.9 * scale), 0.75 * scale, 1.8 * scale, collection, wall) if form == "TURRET" else _cube(name, (x, y, 0.75 * scale), (0.9 * scale, 0.65 * scale, 0.75 * scale), collection, wall, 0.07)
+        bpy.ops.mesh.primitive_cone_add(vertices=8 if form == "TURRET" else 4, radius1=1.05 * scale, depth=0.9 * scale, location=(x, y, 2.05 * scale))
+        _finish_mesh(bpy.context.object, f"{name}_Roof", collection, roof, 0.04)
+        return body
+    height = 1.5 if form == "TOWER" else 1.0
+    body = _cube(name, (x, y, height * scale), (0.9 * scale, 0.72 * scale, height * scale), collection, wall, 0.1)
+    if form in {"PITCHED_HOUSE", "BARN", "CAFE"}:
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=1.15 * scale, depth=0.8 * scale, location=(x, y, (2.25 if height == 1.0 else 3.2) * scale))
+        roof_obj = bpy.context.object
+        roof_obj.rotation_euler.z = math.radians(45)
+        _finish_mesh(roof_obj, f"{name}_Roof", collection, roof, 0.05)
+    if form == "CAFE":
+        _cube(f"{name}_Window", (x, y - 0.73 * scale, 1.05 * scale), (0.48 * scale, 0.04, 0.52 * scale), collection, glass, 0.02)
+        _cube(f"{name}_Awning", (x, y - 1.0 * scale, 1.75 * scale), (0.75 * scale, 0.34 * scale, 0.06), collection, trim, 0.03)
+    return body
+
+
+def _build_character(name, location, scale, collection, body_mat, skin_mat):
+    x, y, _ = location
+    _cylinder(f"{name}_Body", (x, y, 0.72 * scale), 0.2 * scale, 0.9 * scale, collection, body_mat)
+    _sphere(f"{name}_Head", (x, y, 1.38 * scale), 0.25 * scale, collection, skin_mat)
 
 
 def _create_rain(collection: bpy.types.Collection, material: bpy.types.Material) -> bpy.types.Object:
@@ -157,6 +199,7 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     architecture = _new_collection("CV_ARCHITECTURE", root)
     props = _new_collection("CV_PROPS", root)
     vegetation = _new_collection("CV_VEGETATION", root)
+    characters = _new_collection("CV_CHARACTERS", root)
     lights = _new_collection("CV_LIGHTS", root)
     cameras = _new_collection("CV_CAMERAS", root)
     atmosphere_collection = _new_collection("CV_ATMOSPHERE", root)
@@ -172,6 +215,16 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     green = _material("CV_Mat_Leaves", leaf_color)
     glass = _material("CV_Mat_Window", (0.08, 0.28, 0.42, 1.0), 0.25)
     rain_material = _material("CV_Mat_Rain", (0.08, 0.48, 1.0, 1.0), 0.1)
+    skin = _material("CV_Mat_Character_Skin", (0.56, 0.30, 0.18, 1.0))
+
+    world_type = plan.get("world_type", "VILLAGE")
+    profile = profile_for(world_type)
+    style_form_overrides = {"RETRO_SCIFI": "MODULE", "GOTHIC": "TURRET", "ART_DECO": "TOWER", "COZY_FANTASY": "TURRET"}
+    architecture_form = style_form_overrides.get(settings.preset, profile.architecture_form)
+    root["cv_composition_family"] = world_type
+    root["cv_composition_label"] = profile.label
+    root["cv_architecture_treatment"] = architecture_form
+    root["cv_layout_seed"] = str(prompt_seed(prompt, world_type))
 
     base_shape = plan.get("base_shape", "ROUNDED_RECT")
     if base_shape == "CIRCLE":
@@ -182,37 +235,41 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
             base.scale.y = 0.82
             base.rotation_euler.z = math.radians(4)
     if plan.get("include_road", True):
-        _cube("CV_Road", (0.0, -1.45, 0.06), (5.15, 1.05, 0.08), base_collection, road, 0.04)
-        _cube("CV_Sidewalk", (0.0, -0.15, 0.13), (5.15, 0.22, 0.14), base_collection, trim, 0.035)
-
-    _cube("CV_SariSari_Store", (-0.8, 1.2, 1.25), (2.0, 1.35, 1.25), architecture, plaster, 0.12)
-    bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=2.35, radius2=0.0, depth=1.25, location=(-0.8, 1.2, 3.05))
-    roof_obj = bpy.context.object
-    roof_obj.scale.y = 0.72
-    roof_obj.rotation_euler.z = math.radians(45)
-    _finish_mesh(roof_obj, "CV_SariSari_Roof", architecture, roof, 0.06)
-    _cube("CV_Service_Window", (-0.8, -0.17, 1.45), (0.95, 0.05, 0.62), architecture, glass, 0.02)
-    _cube("CV_Awning", (-0.8, -0.62, 2.12), (1.35, 0.52, 0.07), architecture, trim, 0.04).rotation_euler.x = math.radians(-10)
-    _cube("CV_Counter", (-0.8, -0.42, 0.78), (1.08, 0.3, 0.12), props, wood, 0.04)
-    _cube("CV_Store_Sign", (-0.8, -0.24, 2.45), (1.15, 0.06, 0.28), props, trim, 0.04)
-    _cube("CV_Crate_A", (-2.75, 0.1, 0.45), (0.42, 0.42, 0.42), props, wood, 0.05)
-    _cube("CV_Crate_B", (-2.75, 0.95, 0.34), (0.34, 0.34, 0.34), props, trim, 0.05)
-    _cube("CV_Bench", (2.4, 0.25, 0.5), (1.0, 0.32, 0.16), props, wood, 0.05)
+        if world_type == "SPACE_OUTPOST":
+            _cylinder("CV_Landing_Pad", (0.0, -1.4, 0.08), 2.0, 0.12, base_collection, road)
+        elif world_type == "NATURE":
+            _cube("CV_Path", (0.0, -1.2, 0.06), (4.8, 0.48, 0.06), base_collection, wood, 0.12)
+        else:
+            _cube("CV_Road", (0.0, -1.45, 0.06), (5.15, 1.05, 0.08), base_collection, road, 0.04)
+            _cube("CV_Sidewalk", (0.0, -0.15, 0.13), (5.15, 0.22, 0.14), base_collection, trim, 0.035)
 
     architecture_count = max(1, min(int(plan.get("architecture_count", 1)), 8))
-    for index in range(1, architecture_count):
-        x = -4.0 + (index - 1) * 2.4
-        _cube(f"CV_Secondary_Building_{index}", (x, 2.6, 0.75), (0.8, 0.65, 0.75), architecture, plaster, 0.09)
-    prop_count = max(3, min(int(plan.get("prop_count", 3)), 16))
-    for index in range(3, prop_count):
-        x = -4.5 + (index % 6) * 1.55
-        y = -2.8 + (index % 2) * 0.55
-        _cube(f"CV_Set_Dressing_{index + 1}", (x, y, 0.3), (0.22, 0.22, 0.3), props, trim if index % 2 else wood, 0.035)
+    architecture_points = layout_points(prompt, world_type, architecture_count, "ARCHITECTURE")
+    hero_slug = profile.hero.replace(" ", "_")
+    for index, location in enumerate(architecture_points):
+        name = f"CV_Hero_{hero_slug}" if index == 0 else f"CV_{architecture_form.title()}_{index + 1}"
+        scale = 1.35 if index == 0 else 0.75 + (index % 3) * 0.12
+        _build_architecture(architecture_form, name, location, scale, architecture, plaster, roof, trim, glass)
 
-    plant_locations = ((-4.0, 2.3, 0.0), (3.9, 2.25, 0.0), (3.65, -2.7, 0.0), (-3.8, -2.8, 0.0), (2.1, 2.8, 0.0), (-2.2, 2.9, 0.0), (4.4, 0.3, 0.0), (-4.5, 0.2, 0.0))
-    vegetation_count = max(0, min(int(plan.get("vegetation_count", 4)), len(plant_locations)))
-    for index, location in enumerate(plant_locations[:vegetation_count]):
-        _plant(f"CV_Tropical_Plant_{index + 1}", location, 0.72 + index * 0.08, vegetation, wood, green)
+    prop_count = max(0, min(int(plan.get("prop_count", 3)), 20))
+    for index, (x, y, _) in enumerate(layout_points(prompt, world_type, prop_count, "PROPS")):
+        if profile.prop_form in {"TECH", "MAGIC_PROP"}:
+            _cylinder(f"CV_{profile.prop_form.title()}_{index + 1}", (x, y, 0.38), 0.18 + (index % 2) * 0.08, 0.76, props, trim)
+        elif profile.prop_form in {"TABLE", "STALL_PROP"}:
+            _cube(f"CV_{profile.prop_form.title()}_{index + 1}", (x, y, 0.38), (0.4, 0.32, 0.12), props, wood, 0.04)
+        else:
+            _cube(f"CV_{profile.prop_form.title()}_{index + 1}", (x, y, 0.3), (0.22 + (index % 3) * 0.06, 0.22, 0.3), props, trim if index % 2 else wood, 0.035)
+
+    vegetation_count = max(0, min(int(plan.get("vegetation_count", 4)), 16))
+    for index, location in enumerate(layout_points(prompt, world_type, vegetation_count, "VEGETATION")):
+        if profile.vegetation_form == "ALIEN_PLANT":
+            _sphere(f"CV_Alien_Plant_{index + 1}", (location[0], location[1], 0.55), 0.5, vegetation, green, (0.55, 0.55, 1.4))
+        else:
+            _plant(f"CV_{profile.vegetation_form.title()}_{index + 1}", location, 0.62 + (index % 4) * 0.1, vegetation, wood, green)
+
+    character_count = max(0, min(int(plan.get("character_count", 0)), 12))
+    for index, location in enumerate(layout_points(prompt, world_type, character_count, "CHARACTERS")):
+        _build_character(f"CV_Character_{index + 1}", location, 0.72 + (index % 3) * 0.06, characters, trim if index % 2 else plaster, skin)
 
     sun_data = bpy.data.lights.new(SUN_NAME, "SUN")
     sun = bpy.data.objects.new(SUN_NAME, sun_data)
@@ -231,8 +288,10 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     camera_data.type = "PERSP" if plan.get("camera_type") == "PERSPECTIVE" else "ORTHO"
     camera_data.ortho_scale = 13.5
     camera = bpy.data.objects.new("CV_Camera", camera_data)
-    camera.location = (10.8, -13.2, 10.2)
-    _point_camera(camera)
+    camera.location = profile.camera_location
+    if camera_data.type == "PERSP":
+        camera_data.lens = 52.0 if world_type in {"CAFE", "MARKET"} else 44.0
+    _point_camera(camera, profile.camera_target)
     cameras.objects.link(camera)
     _mark(camera, "CV_Camera")
     scene.camera = camera

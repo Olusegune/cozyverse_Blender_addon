@@ -21,6 +21,16 @@ Select **Review World Plan** before building. CozyVerse proposes an editable com
 
 Every build creates a new numbered `CV_WORLD` collection. Existing versions and manual edits are never overwritten. The scene plan is saved as structured JSON on the collection; it is data, not executable Python.
 
+#### Procedural composition families
+
+The reviewed **Composition** field selects one of eight real construction families: Village, Urban Street, Cafe, Landscape, Space Outpost, Market, Farm, or Fantasy. These families change the generated architecture, hero object, roads or paths, props, vegetation, camera position, and set dressing—not only the labels or colors.
+
+Object placement is deterministically seeded from the prompt and composition. Building the same approved plan produces the same layout; changing the description produces a new arrangement. The generated collection records `cv_composition_family`, `cv_composition_label`, `cv_layout_seed`, and `cv_architecture_treatment`.
+
+Character count now produces simple editable miniature figures under `CV_CHARACTERS`. Characters are native Blender mesh parts and are intended as local placeholders until replaced with approved library assets.
+
+Certain styles also change architectural construction. Retro Sci-Fi uses modular domed structures and antennas, Gothic and Cozy Fantasy use turret forms, and Art Deco uses stepped tower forms. Every world owns independent materials, so changing styles in a new version cannot recolor earlier versions.
+
 After building, use **Select & Frame World** to locate the result. **Protect Selected** marks selected generated objects as explicitly locked. **Check Edits** reports objects whose transforms have changed since construction.
 
 For unusually long free-form prompts, **Open Full Text Editor** creates a `CV_World_Prompt` Text datablock and switches the current area to Blender's Text Editor. Select **Use Prompt and Return**, or press **Shift+F5** to return to the 3D View. This is deliberately labeled as an advanced path.

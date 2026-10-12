@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.0
+
+- Added eight distinct procedural composition families: village, city, cafe, nature, space outpost, market, farm, and fantasy.
+- Added deterministic prompt-seeded layouts so different prompts change placement while the same prompt remains reproducible.
+- Added family-specific hero architecture, secondary structures, props, vegetation, paths, and landing pads.
+- Added editable procedural characters and a dedicated `CV_CHARACTERS` collection.
+- Added style-specific architectural treatment for Retro Sci-Fi, Gothic, Art Deco, and Cozy Fantasy.
+- Added composition-aware orthographic or perspective camera positioning and lens choices.
+- Gave every world version independent materials so later style changes cannot recolor earlier worlds.
+- Added unit and Blender integration coverage for layout determinism, family diversity, characters, camera metadata, and material isolation.
+
 ## 0.10.0
 
 - Added a searchable Asset Match & Placement workspace.

@@ -716,10 +716,16 @@ class CV_OT_RecreateReferenceMock(bpy.types.Operator):
         root = build_offline_world(context.scene, settings, prompt)
         palette = json.loads(settings.reference_palette_json)
         material_names = ("CV_Mat_Earth", "CV_Mat_Shop", "CV_Mat_Roof", "CV_Mat_Trim", "CV_Mat_Leaves")
-        for material_name, color in zip(material_names, palette):
-            material = bpy.data.materials.get(material_name)
-            if material is not None:
-                material.diffuse_color = (*color, 1.0)
+        colors = dict(zip(material_names, palette))
+        for obj in _world_objects(root):
+            if getattr(obj, "data", None) is None or not hasattr(obj.data, "materials"):
+                continue
+            for material in obj.data.materials:
+                if material is None:
+                    continue
+                for prefix, color in colors.items():
+                    if material.name == prefix or material.name.startswith(prefix + "."):
+                        material.diffuse_color = (*color, 1.0)
         root["cv_reference_image"] = settings.reference_image_path
         root["cv_reference_mode"] = "local_palette_interpretation"
         root["cv_indexed_asset_count"] = int(settings.indexed_asset_count or 0)
