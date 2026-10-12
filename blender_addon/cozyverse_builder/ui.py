@@ -6,6 +6,7 @@ import bpy
 import json
 
 from .core.style_spec import STYLE_PRESETS
+from .visual_assets import icon_id
 
 
 class _CVPanel:
@@ -42,6 +43,8 @@ def _addon_preferences(context: bpy.types.Context):
 
 def _draw_header(layout: bpy.types.UILayout, settings) -> None:
     hero = layout.box()
+    if icon_id("header"):
+        hero.template_icon(icon_value=icon_id("header"), scale=6.0)
     row = hero.row(align=True)
     row.scale_y = 1.15
     row.label(text="COZYVERSE", icon="WORLD_DATA")
@@ -85,15 +88,20 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
         templates.label(text="QUICK START", icon="BOOKMARKS")
         row = templates.row(align=True)
         for name, label, icon in (("VILLAGE", "Village", "HOME"), ("CITY", "City", "OUTLINER_OB_MESH"), ("CAFE", "Cafe", "LIGHT")):
-            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
+            custom = icon_id(f"template_{name.lower()}")
+            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon_value=custom) if custom else row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
             operator.template = name
         row = templates.row(align=True)
         for name, label, icon in (("NATURE", "Nature", "WORLD"), ("FANTASY", "Fantasy", "SOLO_ON"), ("RETRO_SCIFI", "Retro Sci-Fi", "ORIENTATION_GIMBAL")):
-            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
+            custom = icon_id(f"template_{name.lower()}")
+            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon_value=custom) if custom else row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
             operator.template = name
         style = prompt.box()
         style.label(text="STYLE STUDIO", icon="BRUSH_DATA")
         style.prop(settings, "preset", text="")
+        style_icon = icon_id(f"style_{settings.preset.lower()}")
+        if style_icon:
+            style.template_icon(icon_value=style_icon, scale=6.0)
         selected_style = STYLE_PRESETS.get(settings.preset)
         if selected_style:
             style.label(text=selected_style.description)
@@ -187,6 +195,9 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     lighting = layout.box()
     lighting.label(text="SKY & SUN", icon="WORLD")
     lighting.prop(settings, "atmosphere_preset", text="Look")
+    atmosphere_icon = icon_id(f"atmosphere_{settings.atmosphere_preset.lower()}")
+    if atmosphere_icon:
+        lighting.template_icon(icon_value=atmosphere_icon, scale=6.0)
     for prop in ("time_hour", "sun_intensity", "warmth", "ambient_intensity", "exposure"):
         lighting.prop(settings, prop, slider=True)
     practical = layout.box()
@@ -198,16 +209,20 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     controls.prop(settings, "practical_temperature", slider=True)
     controls.label(text="1,800–6,500 K • native Point lights")
     weather = layout.box()
-    weather.label(text="LEGACY RAIN DEMO", icon="FORCE_WIND")
+    weather.label(text="WEATHER & SEASONS", icon="FORCE_WIND")
     weather.prop(settings, "weather", expand=True)
     rain = weather.row()
     rain.enabled = settings.weather == "RAIN"
     rain.prop(settings, "rain_amount", slider=True)
-    advanced = weather.column(align=True)
-    advanced.enabled = False
-    advanced.label(text="Advanced weather is outside Milestone 4", icon="LOCKED")
-    for prop in ("fog_amount", "wind_amount", "wetness_amount"):
-        advanced.prop(settings, prop, slider=True)
+    snow = weather.row()
+    snow.enabled = settings.weather == "SNOW"
+    snow.prop(settings, "snow_amount", slider=True)
+    weather.prop(settings, "fog_amount", slider=True)
+    weather.prop(settings, "wind_amount", slider=True)
+    weather.prop(settings, "wetness_amount", slider=True)
+    weather.prop(settings, "season", expand=True)
+    weather.prop(settings, "weather_quality", expand=True)
+    weather.label(text="Low quality is the fastest viewport preview", icon="INFO")
     actions = layout.row(align=True)
     actions.operator("cozyverse.apply_atmosphere", text="Apply to Active", icon="CHECKMARK")
     actions.operator("cozyverse.reset_atmosphere", text="Reset", icon="LOOP_BACK")
@@ -224,9 +239,11 @@ def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
     if settings.reference_image is not None:
         source.template_ID_preview(settings, "reference_image", rows=4, cols=5, hide_buttons=True)
         source.label(text=f"{settings.reference_image.size[0]} × {settings.reference_image.size[1]} pixels")
+    elif icon_id("empty_no_image"):
+        source.template_icon(icon_value=icon_id("empty_no_image"), scale=5.0)
     analysis = layout.box()
     analysis.label(text="LOCAL INTERPRETATION", icon="EYEDROPPER")
-    analysis.operator("cozyverse.analyze_reference_locally", text="Extract Color Palette", icon="COLOR")
+    analysis.operator("cozyverse.analyze_reference_locally", text="Analyze Composition Locally", icon="COLOR")
     try:
         palette = json.loads(settings.reference_palette_json)
     except (TypeError, ValueError):
@@ -234,14 +251,16 @@ def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
     if palette:
         analysis.label(text="Palette: " + "  ".join("#" + "".join(f"{round(channel * 255):02X}" for channel in color) for color in palette))
     analysis.label(text=settings.reference_status, icon="INFO")
+    analysis.prop(settings, "reference_quality", expand=True)
     build = layout.column(align=True)
     build.enabled = settings.reference_image is not None
     build.scale_y = 1.5
     build.operator("cozyverse.recreate_reference_mock", text="CREATE EDITABLE INTERPRETATION", icon="MOD_BUILD")
     note = layout.box()
     note.label(text="Current scope", icon="INFO")
-    note.label(text="Uses image palette + deterministic geometry")
-    note.label(text="Exact AI vision reconstruction is not enabled")
+    note.label(text="Uses palette, aspect, brightness, contrast and focal cues")
+    note.label(text="Approximation only — it does not recognize exact objects")
+    note.label(text="All generated parts remain normal editable Blender data")
 
 
 def _draw_asset_library(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
@@ -451,7 +470,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.14.0 Asset Factory")
+    about.label(text="CozyVerse 0.15.0 Reference & Weather")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):

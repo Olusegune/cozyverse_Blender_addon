@@ -87,7 +87,7 @@ Completed in 0.12.0. The active-world contract now covers Sun rotation/energy/co
 
 Completed in 0.13.0 with a deliberately narrow reconciliation contract: revisions never mutate or delete a source world. The preview fingerprints the exact target plan, counts all preserved source objects, and separately reports protected objects and transform edits. Apply creates a lineage-linked new world; Cancel creates nothing. Blender Undo was exercised in a foreground 3D View, and explicit timestamped checkpoints cover longer recovery windows. The activity log is bounded and redacted before persistence.
 
-M6 was approved and implemented in 0.14.0 after reviewing current official Tripo and Meshy contracts. The automated suite uses injected transports and zero-cost mocks; no paid task was submitted. M7-M8 remain blocked on separate approval and mini-PRDs where required.
+M6 was approved and implemented in 0.14.0 after reviewing current official Tripo and Meshy contracts. The automated suite uses injected transports and zero-cost mocks; no paid task was submitted. M7 was approved and implemented in 0.15.0. M8 remains blocked on separate approval and a mini-PRD where required.
 
 ### M6 Optional AI generation and Asset Factory
 
@@ -98,3 +98,7 @@ M6 was approved and implemented in 0.14.0 after reviewing current official Tripo
 - Pass full mock and failure-path tests with zero unapproved provider calls and no scene mutation on provider failure.
 
 Completed in 0.14.0. Live adapters are implemented, but automated acceptance used mock transports and the local mock lifecycle only; paid calls were deliberately not executed.
+
+### M7 Reference-to-World and expanded weather/seasons
+
+Completed in 0.15.0. Local reference analysis now derives palette and bounded composition/lighting cues without uploading the image, offers three viewport-cost levels, and creates a clearly disclosed editable approximation. Atmosphere schema 3 adds editable rain/snow meshes, Blender World fog, a wind guide, per-world wetness, four season looks, and low/medium/high precipitation density. It does not claim semantic object recognition, photogrammetry, physical weather simulation, or exact image reconstruction.

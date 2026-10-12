@@ -9,7 +9,7 @@ import json
 import bpy
 from mathutils import Vector
 
-from .atmosphere import RAIN_NAME, SUN_NAME, apply_atmosphere
+from .atmosphere import RAIN_NAME, SNOW_NAME, SUN_NAME, WIND_NAME, apply_atmosphere
 from .core.style_spec import STYLE_PRESETS
 from .core.composition_spec import layout_points, profile_for, prompt_seed
 
@@ -167,6 +167,40 @@ def _create_rain(collection: bpy.types.Collection, material: bpy.types.Material)
     return rain
 
 
+def _create_snow(collection: bpy.types.Collection, material: bpy.types.Material) -> bpy.types.Object:
+    rng = random.Random(84)
+    vertices = []
+    faces = []
+    for _ in range(240):
+        x, y, z = rng.uniform(-5.2, 5.2), rng.uniform(-3.7, 3.7), rng.uniform(0.5, 7.5)
+        size = rng.uniform(0.025, 0.065)
+        start = len(vertices)
+        vertices.extend(((x - size, y, z), (x + size, y, z), (x + size, y, z + size * 2), (x - size, y, z + size * 2)))
+        faces.append((start, start + 1, start + 2, start + 3))
+    mesh = bpy.data.meshes.new("CV_Snow_Preview_Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    snow = bpy.data.objects.new(SNOW_NAME, mesh)
+    collection.objects.link(snow)
+    mesh.materials.append(material)
+    _mark(snow, SNOW_NAME)
+    snow["cv_weather"] = "SNOW"
+    snow.display_type = "SOLID"
+    snow.show_in_front = True
+    return snow
+
+
+def _create_wind(collection: bpy.types.Collection) -> bpy.types.Object:
+    wind = bpy.data.objects.new(WIND_NAME, None)
+    collection.objects.link(wind)
+    _mark(wind, WIND_NAME)
+    wind.empty_display_type = "ARROWS"
+    wind.empty_display_size = 1.4
+    wind.rotation_euler = (0.0, math.radians(70.0), math.radians(-25.0))
+    wind["cv_weather"] = "WIND"
+    wind["cv_wind_strength"] = 0.0
+    return wind
+
+
 def _point_camera(camera: bpy.types.Object, target=(0.0, 0.0, 0.8)) -> None:
     direction = Vector(target) - camera.location
     camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
@@ -204,6 +238,8 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     cameras = _new_collection("CV_CAMERAS", root)
     atmosphere_collection = _new_collection("CV_ATMOSPHERE", root)
     rain_collection = _new_collection("CV_RAIN", atmosphere_collection)
+    snow_collection = _new_collection("CV_SNOW", atmosphere_collection)
+    wind_collection = _new_collection("CV_WIND", atmosphere_collection)
 
     earth_color, shop_color, roof_color, trim_color, leaf_color = style.palette
     earth = _material("CV_Mat_Earth", earth_color)
@@ -215,6 +251,7 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     green = _material("CV_Mat_Leaves", leaf_color)
     glass = _material("CV_Mat_Window", (0.08, 0.28, 0.42, 1.0), 0.25)
     rain_material = _material("CV_Mat_Rain", (0.08, 0.48, 1.0, 1.0), 0.1)
+    snow_material = _material("CV_Mat_Snow", (0.9, 0.96, 1.0, 1.0), 0.0)
     skin = _material("CV_Mat_Character_Skin", (0.56, 0.30, 0.18, 1.0))
 
     world_type = plan.get("world_type", "VILLAGE")
@@ -297,6 +334,8 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     scene.camera = camera
 
     _create_rain(rain_collection, rain_material)
+    _create_snow(snow_collection, snow_material)
+    _create_wind(wind_collection)
     scene["cv_active_world"] = root.name
     apply_atmosphere(scene, settings)
     _tag_world_members(root, root.name)

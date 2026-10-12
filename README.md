@@ -1,11 +1,12 @@
 # CozyVerse Builder
 
-CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.14.0 adds the optional Tripo/Meshy generation pipeline and reusable Asset Factory behind exact-request, budget, quarantine, and promotion approvals.
+CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.15.0 adds composition-aware local reference interpretation plus editable fog, rain, snow, wind, wetness, seasons, and bounded preview quality.
 
 The foundation build provides:
 
+- bundled header, style, template, atmosphere, onboarding, provider, and empty-state artwork with native Blender icon fallbacks;
 - a native 3D View sidebar under the `CozyVerse` tab;
-- a reference-image preview, local palette extraction, and editable offline interpretation;
+- a reference-image preview, local palette/composition analysis, and quality-bounded editable offline interpretation;
 - safe filename indexing for Blender Asset Libraries and an optional local model folder;
 - twelve curated visual styles, including Retro Sci-Fi, Solarpunk, Cozy Fantasy, Clay, Paper Craft, and Art Deco;
 - a validated editable scene plan that is reviewed before Blender objects are created;
@@ -20,7 +21,7 @@ The foundation build provides:
 - explicit estimated-credit ceilings and final confirmation before any paid submission;
 - allowlisted, size-limited GLB downloads, quarantine inspection, provenance and approved Asset Factory promotion;
 - a deterministic sari-sari-store diorama made from editable Blender-native objects;
-- six functional atmosphere looks with time, sunlight, warmth, ambient light, exposure, practical-light intensity and 1,800–6,500 K color controls;
+- six functional atmosphere looks with time, sunlight, warmth, ambient light, exposure, practical lights, fog, rain, snow, wind, wetness, seasons, and preview quality;
 - per-world atmosphere persistence, saved-look loading, and automatic migration of version 1 presets;
 - pre-build revision summaries for created, changed, deleted, preserved, protected, and manually edited content;
 - plan fingerprints that invalidate approval after any reviewed setting changes;

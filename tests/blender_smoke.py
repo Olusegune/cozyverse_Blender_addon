@@ -111,8 +111,22 @@ try:
     settings.rain_amount = 45.0
     assert bpy.ops.cozyverse.save_atmosphere_preset() == {"FINISHED"}
     assert "cv_custom_atmosphere_preset" in bpy.context.scene
-    assert '"schema_version":"2.0"' in bpy.context.scene["cv_custom_atmosphere_preset"]
-    assert world.get("cv_atmosphere_schema") == "2.0"
+    assert '"schema_version":"3.0"' in bpy.context.scene["cv_custom_atmosphere_preset"]
+    assert world.get("cv_atmosphere_schema") == "3.0"
+    settings.weather = "SNOW"
+    settings.snow_amount = 60.0
+    settings.weather_quality = "LOW"
+    snow = bpy.data.objects["CV_Snow_Preview"]
+    assert not snow.hide_viewport and len(snow.data.vertices) == 60 * 4 * 3 // 2
+    settings.weather = "FOG"
+    settings.fog_amount = 40.0
+    assert bpy.context.scene.world.node_tree.nodes["CV Fog"].inputs["Density"].default_value > 0.0
+    settings.wind_amount = 55.0
+    assert bpy.data.objects["CV_Wind"].get("cv_wind_strength") == 55.0
+    settings.wetness_amount = 70.0
+    assert bpy.data.materials["CV_Mat_Earth"].roughness < bpy.data.materials["CV_Mat_Earth"]["cv_dry_roughness"]
+    settings.season = "AUTUMN"
+    assert bpy.data.materials["CV_Mat_Leaves"].diffuse_color[0] > bpy.data.materials["CV_Mat_Leaves"].diffuse_color[1]
     settings.practical_temperature = 2300.0
     settings.practical_lights = False
     assert interior.data.energy == 0.0
@@ -175,7 +189,7 @@ try:
     bpy.data.collections["CV_WORLD_002"]["cv_atmosphere_values"] = legacy
     assert bpy.ops.cozyverse.load_atmosphere_preset() == {"FINISHED"}
     assert settings.time_hour == 10.0
-    assert '"schema_version":"2.0"' in bpy.data.collections["CV_WORLD_002"]["cv_atmosphere_values"]
+    assert '"schema_version":"3.0"' in bpy.data.collections["CV_WORLD_002"]["cv_atmosphere_values"]
     settings.prompt = "Create a revised village with a larger market square"
     settings.prompt_text = None
     world_count_before_cancel = len([item for item in bpy.data.collections if item.get("cv_managed") and item.name.startswith("CV_WORLD")])
@@ -204,7 +218,9 @@ try:
     assert bpy.ops.cozyverse.recreate_reference_mock() == {"FINISHED"}
     reference_world = bpy.data.collections.get("CV_WORLD_003")
     assert reference_world is not None
-    assert reference_world.get("cv_reference_mode") == "local_palette_interpretation"
+    assert reference_world.get("cv_reference_mode") == "local_composition_interpretation"
+    assert reference_world.get("cv_reference_analysis")
+    assert reference_world.get("cv_reference_quality") == "BALANCED"
 
     library_path = repo_root / "work" / "cozyverse_asset_library_test.blend"
     bpy.data.libraries.write(str(library_path), {preexisting})
@@ -247,12 +263,12 @@ try:
     bpy.ops.wm.open_mainfile(filepath=str(output_path))
     assert bpy.data.collections.get("CV_WORLD") is not None
     assert bpy.data.collections.get("CV_WORLD_002") is not None
-    assert bpy.data.collections.get("CV_WORLD_003").get("cv_reference_mode") == "local_palette_interpretation"
+    assert bpy.data.collections.get("CV_WORLD_003").get("cv_reference_mode") == "local_composition_interpretation"
     assert bpy.data.objects.get("Preexisting_User_Object") is not None
     assert bpy.data.objects["CV_Hero_Command_Module"].location.x == edited_x
     assert bpy.context.scene.cozyverse.weather == "CLEAR"
-    assert bpy.context.scene.cozyverse.time_hour == 10.0
-    assert bpy.data.collections["CV_WORLD_002"].get("cv_atmosphere_schema") == "2.0"
+    assert bpy.context.scene.cozyverse.time_hour in {12.0, 18.5, 22.0}
+    assert bpy.data.collections["CV_WORLD_002"].get("cv_atmosphere_schema") == "3.0"
 finally:
     addon.unregister()
 

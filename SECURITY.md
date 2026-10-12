@@ -1,6 +1,6 @@
 # Credential and Data Safety
 
-CozyVerse Builder 0.14.0 keeps local creation as the default. Procedural variety and Atmosphere Lab mappings are deterministic local code driven by validated scene-plan and preset data; no generated Python is executed. External generation is optional and request-specific. Asset imports remain approval-gated, imported animation drivers are removed, and reference images remain local unless a future separately approved image-upload workflow is implemented.
+CozyVerse Builder 0.15.0 keeps local creation as the default. Procedural variety, reference-image cue extraction, and Atmosphere Lab mappings are deterministic local code driven by validated scene-plan and preset data; no generated Python is executed. External generation is optional and request-specific. Asset imports remain approval-gated, imported animation drivers are removed, and reference images remain local unless a future separately approved image-upload workflow is implemented.
 
 Revision activity is stored as a maximum of 50 scene-local entries. Credential-shaped values and current session secrets are redacted before an entry is stored. Checkpoints are explicit user actions and are written as timestamped `.blend` copies beside an already-saved project; CozyVerse never silently changes the active file path.
 

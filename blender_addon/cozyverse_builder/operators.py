@@ -18,7 +18,7 @@ from .core.demo_spec import DEFAULT_PROMPT
 from .world_builder import build_offline_world
 from .providers.contracts import GenerationPlan, build_plan, validate_budget, validate_download_url
 from .providers import runtime as provider_runtime
-from .core.reference_spec import dominant_palette, scan_asset_files, validate_reference_path
+from .core.reference_spec import analyze_composition, dominant_palette, reference_plan, scan_asset_files, validate_reference_path
 from .core.style_spec import STYLE_PRESETS, style_items, styled_prompt
 from .core.scene_plan import ScenePlan, parse_plan, proposed_plan
 from .core.asset_catalog import AssetRecord, match_assets, record_from_path
@@ -205,6 +205,12 @@ def _atmosphere_from_settings(settings) -> AtmosphereValues:
         settings.exposure,
         settings.practical_temperature,
         settings.practical_lights,
+        settings.fog_amount,
+        settings.wind_amount,
+        settings.wetness_amount,
+        settings.snow_amount,
+        settings.season,
+        settings.weather_quality,
     )
 
 
@@ -220,6 +226,12 @@ def _set_atmosphere_values(settings, values: AtmosphereValues, preset: str = "CU
     settings.exposure = values.exposure
     settings.practical_temperature = values.practical_temperature
     settings.practical_lights = values.practical_lights
+    settings.fog_amount = values.fog_amount
+    settings.wind_amount = values.wind_amount
+    settings.wetness_amount = values.wetness_amount
+    settings.snow_amount = values.snow_amount
+    settings.season = values.season
+    settings.weather_quality = values.weather_quality
 
 
 class CV_OT_StartOnboarding(bpy.types.Operator):
@@ -708,6 +720,7 @@ class CV_OT_SelectReferenceImage(bpy.types.Operator, ImportHelper):
         settings.reference_image_path = str(path)
         settings.reference_image = image
         settings.reference_palette_json = "[]"
+        settings.reference_analysis_json = ""
         settings.reference_status = f"Loaded {image.name} ({image.size[0]} × {image.size[1]})"
         return {"FINISHED"}
 
@@ -724,7 +737,9 @@ class CV_OT_AnalyzeReferenceLocally(bpy.types.Operator):
             settings.reference_status = "Choose a reference image first"
             return {"CANCELLED"}
         try:
-            palette = dominant_palette(list(image.pixels), image.channels, 5)
+            pixels = list(image.pixels)
+            palette = dominant_palette(pixels, image.channels, 5)
+            analysis = analyze_composition(pixels, image.size[0], image.size[1], image.channels)
         except (RuntimeError, ValueError) as exc:
             settings.reference_status = f"Image analysis failed: {exc}"
             return {"CANCELLED"}
@@ -732,7 +747,8 @@ class CV_OT_AnalyzeReferenceLocally(bpy.types.Operator):
             settings.reference_status = "The image did not contain readable color pixels"
             return {"CANCELLED"}
         settings.reference_palette_json = json.dumps(palette)
-        settings.reference_status = f"Local palette ready: {len(palette)} colors; image was not uploaded"
+        settings.reference_analysis_json = analysis.to_json()
+        settings.reference_status = f"Local cues ready: {analysis.aspect.lower()}, {analysis.suggested_time.lower()}, focal point {analysis.focal_x:.0%} across; not uploaded"
         return {"FINISHED"}
 
 
@@ -967,8 +983,9 @@ class CV_OT_RecreateReferenceMock(bpy.types.Operator):
             result = bpy.ops.cozyverse.analyze_reference_locally()
             if result != {"FINISHED"}:
                 return result
-        prompt = f"Editable local interpretation of the diorama reference {settings.reference_image.name}"
-        root = build_offline_world(context.scene, settings, prompt)
+        analysis = analyze_composition(list(settings.reference_image.pixels), settings.reference_image.size[0], settings.reference_image.size[1], settings.reference_image.channels)
+        prompt = f"Editable approximate interpretation of the diorama reference {settings.reference_image.name}"
+        root = build_offline_world(context.scene, settings, prompt, reference_plan(analysis, settings.reference_quality))
         palette = json.loads(settings.reference_palette_json)
         material_names = ("CV_Mat_Earth", "CV_Mat_Shop", "CV_Mat_Roof", "CV_Mat_Trim", "CV_Mat_Leaves")
         colors = dict(zip(material_names, palette))
@@ -982,7 +999,16 @@ class CV_OT_RecreateReferenceMock(bpy.types.Operator):
                     if material.name == prefix or material.name.startswith(prefix + "."):
                         material.diffuse_color = (*color, 1.0)
         root["cv_reference_image"] = settings.reference_image_path
-        root["cv_reference_mode"] = "local_palette_interpretation"
+        root["cv_reference_mode"] = "local_composition_interpretation"
+        root["cv_reference_analysis"] = analysis.to_json()
+        root["cv_reference_quality"] = settings.reference_quality
+        camera = next((obj for obj in _world_objects(root) if obj.type == "CAMERA"), None)
+        if camera is not None:
+            camera.data.shift_x = (analysis.focal_x - 0.5) * 0.45
+            camera.data.shift_y = (analysis.focal_y - 0.5) * 0.25
+        time_map = {"DAY": 12.0, "DUSK": 18.5, "NIGHT": 22.0}
+        settings.time_hour = time_map[analysis.suggested_time]
+        settings.warmth = analysis.warmth * 100.0
         root["cv_indexed_asset_count"] = int(settings.indexed_asset_count or 0)
         settings.reference_status = f"Editable interpretation ready: {root.name}"
         settings.active_world_name = root.name

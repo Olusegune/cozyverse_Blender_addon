@@ -1,4 +1,4 @@
-"""Render clear and rainy R1 demo frames for visual QA."""
+"""Render clear, rainy, and snowy demo frames for visual QA."""
 
 from __future__ import annotations
 
@@ -43,6 +43,10 @@ settings.rain_amount = 70.0
 scene.render.filepath = str(qa_dir / "rain-world.png")
 bpy.ops.render.render(write_still=True)
 
-addon.unregister()
-print("COZYVERSE_R1_RENDER_QA_OK")
+settings.weather = "SNOW"
+settings.snow_amount = 70.0
+scene.render.filepath = str(qa_dir / "snow-world.png")
+bpy.ops.render.render(write_still=True)
 
+addon.unregister()
+print("COZYVERSE_M7_RENDER_QA_OK")

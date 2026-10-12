@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0
+
+- Added offline reference composition analysis (aspect, brightness, contrast, warmth, focal point, and horizon cues) with explicit approximation disclosure.
+- Added Blockout, Balanced, and Detailed reference interpretation levels.
+- Added editable native world-volume fog, rain and snow meshes, a visible wind guide, wet material response, four seasonal foliage looks, and precipitation preview quality controls.
+- Migrated atmosphere presets to schema 3.0 while retaining version 1 and 2 loading.
+- Added pure-Python and Blender smoke coverage for the new controls.
+- Integrated the supplied CozyVerse visual asset pack: branded header, visual Quick Start choices, live style/atmosphere previews, and image empty-state artwork with native icon fallbacks.
+
 ## 0.14.0
 
 - Implemented Milestone 6 optional Tripo/Meshy generation and Asset Factory workflow.

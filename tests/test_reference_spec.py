@@ -29,6 +29,21 @@ class ReferenceSpecTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 reference.validate_reference_path(str(path))
 
+    def test_composition_extracts_bounded_cues_and_plan_quality(self):
+        pixels = []
+        for y in range(4):
+            for x in range(8):
+                pixels.extend((0.9 if x > 5 else 0.15, 0.2, 0.05, 1.0))
+        result = reference.analyze_composition(pixels, 8, 4)
+        self.assertEqual(result.aspect, "WIDE")
+        self.assertGreater(result.focal_x, 0.5)
+        self.assertIn(result.suggested_time, {"DAY", "DUSK", "NIGHT"})
+        self.assertLess(reference.reference_plan(result, "BLOCKOUT")["architecture_count"], reference.reference_plan(result, "DETAILED")["architecture_count"])
+
+    def test_composition_rejects_mismatched_pixels(self):
+        with self.assertRaises(ValueError):
+            reference.analyze_composition([1.0, 0.0, 0.0, 1.0], 2, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

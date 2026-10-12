@@ -19,6 +19,12 @@ class AtmosphereValues:
     exposure: float = 0.0
     practical_temperature: float = 2700.0
     practical_lights: bool = True
+    fog_amount: float = 0.0
+    wind_amount: float = 0.0
+    wetness_amount: float = 0.0
+    snow_amount: float = 0.0
+    season: str = "SUMMER"
+    weather_quality: str = "MEDIUM"
 
 
 PRESETS = {
@@ -63,17 +69,17 @@ def kelvin_rgb(temperature: float) -> tuple[float, float, float]:
 
 
 def serialize_preset(values: AtmosphereValues) -> str:
-    payload = {"schema_version": "2.0", **asdict(values)}
+    payload = {"schema_version": "3.0", **asdict(values)}
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 def deserialize_preset(payload: str) -> AtmosphereValues:
     data = json.loads(payload)
     schema_version = data.get("schema_version")
-    if schema_version not in {"1.0", "2.0"}:
+    if schema_version not in {"1.0", "2.0", "3.0"}:
         raise ValueError("Unsupported atmosphere preset schema")
     weather = data.get("weather")
-    if weather not in {"CLEAR", "RAIN"}:
+    if weather not in {"CLEAR", "RAIN", "FOG", "SNOW"}:
         raise ValueError("Unsupported atmosphere weather")
     return AtmosphereValues(
         clamp(data["time_hour"], 0.0, 24.0),
@@ -86,4 +92,10 @@ def deserialize_preset(payload: str) -> AtmosphereValues:
         clamp(data.get("exposure", 0.0), -3.0, 3.0),
         clamp(data.get("practical_temperature", 2700.0), 1800.0, 6500.0),
         bool(data.get("practical_lights", True)),
+        clamp(data.get("fog_amount", 0.0), 0.0, 100.0),
+        clamp(data.get("wind_amount", 0.0), 0.0, 100.0),
+        clamp(data.get("wetness_amount", 0.0), 0.0, 100.0),
+        clamp(data.get("snow_amount", 0.0), 0.0, 100.0),
+        data.get("season", "SUMMER") if data.get("season", "SUMMER") in {"SPRING", "SUMMER", "AUTUMN", "WINTER"} else "SUMMER",
+        data.get("weather_quality", "MEDIUM") if data.get("weather_quality", "MEDIUM") in {"LOW", "MEDIUM", "HIGH"} else "MEDIUM",
     )

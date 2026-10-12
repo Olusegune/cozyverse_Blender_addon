@@ -34,7 +34,12 @@ class AtmosphereSpecTests(unittest.TestCase):
         self.assertEqual(values.exposure, 0.0)
         self.assertEqual(values.practical_temperature, 2700.0)
         self.assertTrue(values.practical_lights)
-        self.assertIn('"schema_version":"2.0"', serialize_preset(values))
+        self.assertIn('"schema_version":"3.0"', serialize_preset(values))
+        self.assertEqual(values.season, "SUMMER")
+
+    def test_v3_weather_round_trip(self) -> None:
+        values = AtmosphereValues(7, 30, 40, 20, 10, "SNOW", 0, 0, 2700, True, 15, 35, 20, 65, "WINTER", "LOW")
+        self.assertEqual(deserialize_preset(serialize_preset(values)), values)
 
     def test_kelvin_mapping_is_bounded_and_warmer_at_low_temperature(self) -> None:
         warm = kelvin_rgb(1800.0)

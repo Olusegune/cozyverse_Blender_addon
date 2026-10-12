@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import random
 
 import bpy
 
@@ -11,7 +12,34 @@ from .core.atmosphere_spec import AtmosphereValues, kelvin_rgb, serialize_preset
 
 SUN_NAME = "CV_Sun"
 RAIN_NAME = "CV_Rain_Preview"
+SNOW_NAME = "CV_Snow_Preview"
+WIND_NAME = "CV_Wind"
 INTERIOR_LIGHT_PREFIX = "CV_Interior_"
+
+
+def _set_precipitation_density(obj: bpy.types.Object, kind: str, quality: str) -> None:
+    count = {"LOW": 60, "MEDIUM": 160, "HIGH": 320}.get(quality, 160)
+    if kind == "SNOW":
+        count = int(count * 1.5)
+    if obj.get("cv_particle_count") == count:
+        return
+    rng = random.Random(42 if kind == "RAIN" else 84)
+    vertices = []
+    faces = []
+    for _ in range(count):
+        x, y, z = rng.uniform(-5.2, 5.2), rng.uniform(-3.7, 3.7), rng.uniform(0.5, 7.5)
+        start = len(vertices)
+        if kind == "RAIN":
+            width, length = 0.018, rng.uniform(0.28, 0.7)
+            vertices.extend(((x - width, y, z), (x + width, y, z), (x + width - 0.11, y, z - length), (x - width - 0.11, y, z - length)))
+        else:
+            size = rng.uniform(0.025, 0.065)
+            vertices.extend(((x - size, y, z), (x + size, y, z), (x + size, y, z + size * 2), (x - size, y, z + size * 2)))
+        faces.append((start, start + 1, start + 2, start + 3))
+    obj.data.clear_geometry()
+    obj.data.from_pydata(vertices, [], faces)
+    obj.data.update()
+    obj["cv_particle_count"] = count
 
 
 def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
@@ -59,6 +87,17 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
         )
         changed = True
 
+    if world.node_tree is not None:
+        output = world.node_tree.nodes.get("World Output")
+        fog = world.node_tree.nodes.get("CV Fog")
+        if fog is None:
+            fog = world.node_tree.nodes.new("ShaderNodeVolumePrincipled")
+            fog.name = "CV Fog"
+        density = settings.fog_amount / 100.0 * 0.045 if settings.weather == "FOG" or settings.fog_amount > 0.0 else 0.0
+        fog.inputs["Density"].default_value = density
+        if output is not None and not output.inputs["Volume"].is_linked:
+            world.node_tree.links.new(fog.outputs["Volume"], output.inputs["Volume"])
+
     for obj in bpy.data.objects:
         if (
             obj.name.startswith(INTERIOR_LIGHT_PREFIX)
@@ -78,6 +117,7 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
     ]
     rain = rain_objects[-1] if rain_objects else None
     if rain is not None:
+        _set_precipitation_density(rain, "RAIN", settings.weather_quality)
         enabled = settings.weather == "RAIN" and settings.rain_amount > 0.0
         rain.hide_viewport = not enabled
         rain.hide_render = not enabled
@@ -85,6 +125,39 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
         rain.scale.z = 0.6 + (settings.rain_amount / 100.0) * 0.8
         rain.color = (0.18, 0.55, 1.0, 1.0)
         changed = True
+
+    snow = next((obj for obj in bpy.data.objects if obj.name.startswith(SNOW_NAME) and (not active_world or obj.get("cv_world_root") == active_world)), None)
+    if snow is not None:
+        _set_precipitation_density(snow, "SNOW", settings.weather_quality)
+        enabled = settings.weather == "SNOW" and settings.snow_amount > 0.0
+        snow.hide_viewport = not enabled
+        snow.hide_render = not enabled
+        snow.scale = (1.0 + settings.snow_amount / 250.0,) * 3
+        snow["cv_snow_amount"] = float(settings.snow_amount)
+        snow["cv_preview_quality"] = settings.weather_quality
+        changed = True
+
+    wind = next((obj for obj in bpy.data.objects if obj.name.startswith(WIND_NAME) and (not active_world or obj.get("cv_world_root") == active_world)), None)
+    if wind is not None:
+        wind.hide_viewport = settings.wind_amount <= 0.0
+        wind.hide_render = True
+        wind["cv_wind_strength"] = float(settings.wind_amount)
+        wind.empty_display_size = 0.6 + settings.wind_amount / 35.0
+
+    season_colors = {"SPRING": (0.24, 0.62, 0.22, 1.0), "SUMMER": (0.10, 0.38, 0.12, 1.0), "AUTUMN": (0.72, 0.22, 0.035, 1.0), "WINTER": (0.58, 0.65, 0.55, 1.0)}
+    if world_collection is not None:
+        seen_materials = set()
+        for obj in world_collection.all_objects:
+            data = getattr(obj, "data", None)
+            for material in getattr(data, "materials", ()) if data is not None else ():
+                if material is None or material in seen_materials:
+                    continue
+                seen_materials.add(material)
+                if "cv_dry_roughness" not in material:
+                    material["cv_dry_roughness"] = material.roughness
+                material.roughness = max(0.08, float(material["cv_dry_roughness"]) * (1.0 - settings.wetness_amount / 125.0))
+                if material.name.startswith("CV_Mat_Leaves"):
+                    material.diffuse_color = season_colors[settings.season]
 
     scene.view_settings.exposure = settings.exposure
     if world_collection is not None and world_collection.get("cv_managed"):
@@ -99,8 +172,14 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
             settings.exposure,
             settings.practical_temperature,
             settings.practical_lights,
+            settings.fog_amount,
+            settings.wind_amount,
+            settings.wetness_amount,
+            settings.snow_amount,
+            settings.season,
+            settings.weather_quality,
         )
-        world_collection["cv_atmosphere_schema"] = "2.0"
+        world_collection["cv_atmosphere_schema"] = "3.0"
         world_collection["cv_atmosphere_preset"] = settings.atmosphere_preset
         world_collection["cv_atmosphere_values"] = serialize_preset(values)
 

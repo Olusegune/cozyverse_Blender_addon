@@ -1,0 +1,12 @@
+CozyVerse Brand Colors
+Obsidian Background #0A121C
+Raised Surface #111E2B
+Secondary Surface #172638
+Border #29425B
+Primary Blue #2E8BFF
+Soft Cyan #5DCBFF
+Success Green #2FCB82
+Warm Amber #FFB454
+Error Coral #FF6470
+Main Text #F3F7FC
+Secondary Text #A9BACD

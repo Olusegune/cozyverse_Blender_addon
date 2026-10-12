@@ -33,6 +33,12 @@ def _update_atmosphere_preset(self, context: bpy.types.Context) -> None:
     self.exposure = values.exposure
     self.practical_temperature = values.practical_temperature
     self.practical_lights = values.practical_lights
+    self.fog_amount = values.fog_amount
+    self.wind_amount = values.wind_amount
+    self.wetness_amount = values.wetness_amount
+    self.snow_amount = values.snow_amount
+    self.season = values.season
+    self.weather_quality = values.weather_quality
     _update_atmosphere(self, context)
 
 
@@ -228,6 +234,13 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         type=bpy.types.Image,
     )
     reference_palette_json: StringProperty(name="Reference Palette", default="[]", options={"HIDDEN"})
+    reference_analysis_json: StringProperty(name="Reference Analysis", default="", options={"HIDDEN"})
+    reference_quality: EnumProperty(
+        name="Interpretation Detail",
+        description="Controls deterministic object counts; Blockout is the lowest-cost viewport preview",
+        items=(("BLOCKOUT", "Blockout", "Fast composition preview"), ("BALANCED", "Balanced", "Moderate editable detail"), ("DETAILED", "Detailed", "More editable objects")),
+        default="BALANCED",
+    )
     reference_status: StringProperty(name="Reference Status", default="Choose a diorama reference image")
     indexed_asset_count: StringProperty(name="Indexed Assets", default="0")
     indexed_asset_preview: StringProperty(name="Asset Index Preview", default="", options={"HIDDEN"})
@@ -272,7 +285,7 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
             ("GOLDEN_HOUR", "Golden Hour", "Warm sunset lighting"),
             ("RAINY_CAFE", "Rainy Cafe", "Evening practical lights and visible rain"),
             ("MOONLIT", "Moonlit", "Cool low-light night"),
-            ("MISTY_DAWN", "Misty Dawn", "Soft dawn lighting; fog remains unsupported"),
+            ("MISTY_DAWN", "Misty Dawn", "Soft dawn lighting"),
             ("BRIGHT_DAY", "Bright Day", "Clean daylight with practical lights off"),
             ("BLUE_HOUR", "Blue Hour", "Cool twilight with warm practical lights"),
             ("CUSTOM", "Custom", "Current custom values"),
@@ -350,8 +363,10 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     weather: EnumProperty(
         name="Weather",
         items=(
-            ("CLEAR", "Clear", "Hide the rain preview"),
+            ("CLEAR", "Clear", "Hide precipitation"),
             ("RAIN", "Rain", "Show the editable rain preview"),
+            ("FOG", "Fog", "Show native volumetric fog"),
+            ("SNOW", "Snow", "Show the editable snow preview"),
         ),
         default="CLEAR",
         update=_update_atmosphere,
@@ -364,9 +379,12 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         subtype="PERCENTAGE",
         update=_update_atmosphere,
     )
-    fog_amount: FloatProperty(name="Fog", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE")
-    wind_amount: FloatProperty(name="Wind", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE")
-    wetness_amount: FloatProperty(name="Wetness", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE")
+    snow_amount: FloatProperty(name="Snow Amount", default=45.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
+    fog_amount: FloatProperty(name="Fog", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
+    wind_amount: FloatProperty(name="Wind", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
+    wetness_amount: FloatProperty(name="Wetness", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
+    season: EnumProperty(name="Season", items=(("SPRING", "Spring", "Fresh green foliage"), ("SUMMER", "Summer", "Deep green foliage"), ("AUTUMN", "Autumn", "Warm orange foliage"), ("WINTER", "Winter", "Pale winter foliage")), default="SUMMER", update=_update_atmosphere)
+    weather_quality: EnumProperty(name="Preview Quality", items=(("LOW", "Low", "Fastest viewport preview"), ("MEDIUM", "Medium", "Balanced preview"), ("HIGH", "High", "Denser precipitation preview")), default="MEDIUM", update=_update_atmosphere)
     generation_prompt: StringProperty(
         name="Asset Prompt",
         description="Describe one missing 3D asset for Tripo or Meshy",

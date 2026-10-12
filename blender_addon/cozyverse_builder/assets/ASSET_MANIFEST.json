@@ -1,0 +1,462 @@
+{
+  "atmosphere/atmosphere_golden_hour.png": {
+    "width": 512,
+    "height": 288,
+    "mode": "RGBA"
+  },
+  "atmosphere/atmosphere_misty_dawn.png": {
+    "width": 512,
+    "height": 288,
+    "mode": "RGBA"
+  },
+  "atmosphere/atmosphere_moonlit.png": {
+    "width": 512,
+    "height": 288,
+    "mode": "RGBA"
+  },
+  "atmosphere/atmosphere_rainy_cafe.png": {
+    "width": 512,
+    "height": 288,
+    "mode": "RGBA"
+  },
+  "brand/cozyverse_logo_mark.png": {
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA"
+  },
+  "brand/cozyverse_wordmark.png": {
+    "width": 1200,
+    "height": 300,
+    "mode": "RGBA"
+  },
+  "brand/header_cozy_world.png": {
+    "width": 1200,
+    "height": 420,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_approve_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_assets_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_atmosphere_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_build_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_buildings_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_camera_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_characters_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_create_world_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_image_to_world_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_lighting_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_local_safe_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_meshy_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_props_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_protect_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_rain_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_review_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_roads_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_scene_plan_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_style_studio_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_tripo_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_vegetation_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_vehicles_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/dark/icon_version_history_dark.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_approve_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_assets_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_atmosphere_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_build_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_buildings_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_camera_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_characters_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_create_world_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_image_to_world_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_lighting_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_local_safe_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_meshy_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_props_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_protect_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_rain_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_review_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_roads_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_scene_plan_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_style_studio_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_tripo_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_vegetation_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_vehicles_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "icons/light/icon_version_history_light.png": {
+    "width": 128,
+    "height": 128,
+    "mode": "RGBA"
+  },
+  "onboarding/onboarding_build.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGBA"
+  },
+  "onboarding/onboarding_describe.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGBA"
+  },
+  "onboarding/onboarding_review.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_building.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_character.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_furniture.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_other.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_prop.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_road.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_vegetation.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "placeholders/placeholder_vehicle.png": {
+    "width": 320,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "premium/empty_no_assets.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGB"
+  },
+  "premium/empty_no_image.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGB"
+  },
+  "premium/empty_no_matches.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGB"
+  },
+  "premium/empty_no_world.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGB"
+  },
+  "premium/provider_meshy_badge.png": {
+    "width": 256,
+    "height": 96,
+    "mode": "RGBA"
+  },
+  "premium/provider_tripo_badge.png": {
+    "width": 256,
+    "height": 96,
+    "mode": "RGBA"
+  },
+  "premium/success_world_ready.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGB"
+  },
+  "premium/warning_missing_asset.png": {
+    "width": 800,
+    "height": 500,
+    "mode": "RGB"
+  },
+  "styles/style_art_deco.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_clay.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_cozy_fantasy.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_cozy_village.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_cyberpunk.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_gothic.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_low_poly.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_papercraft.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_retro_scifi.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_solarpunk.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_storybook.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "styles/style_tropical.png": {
+    "width": 512,
+    "height": 320,
+    "mode": "RGBA"
+  },
+  "templates/template_cafe.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  },
+  "templates/template_city.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  },
+  "templates/template_fantasy.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  },
+  "templates/template_farm.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  },
+  "templates/template_market.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  },
+  "templates/template_nature.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  },
+  "templates/template_retro_scifi.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  },
+  "templates/template_village.png": {
+    "width": 640,
+    "height": 400,
+    "mode": "RGBA"
+  }
+}

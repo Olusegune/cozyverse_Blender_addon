@@ -1,5 +1,7 @@
 # CozyVerse Builder User Guide
 
+The sidebar now includes bundled visual previews for the current style and supported atmosphere looks, illustrated Quick Start buttons, a branded header, and an image empty state. These are interface previews only, not 3D assets. Blender-native controls remain available when a preview cannot load.
+
 ## Start in under a minute
 
 1. Install the CozyVerse ZIP through **Edit > Preferences > Get Extensions > Install from Disk**.
@@ -53,11 +55,15 @@ The **Retro Sci-Fi** quick-start button fills the world-description fields and s
 
 Choose Golden Hour, Rainy Cafe, Moonlit, Misty Dawn, Bright Day, or Blue Hour, or adjust the controls directly. Time of Day rotates the real `CV_Sun`; sunlight, warmth, ambient light, and Exposure update Blender light, World, and color-management properties. Practical Lights can be enabled independently, with editable intensity and color temperature from 1,800 K to 6,500 K. These changes never rebuild geometry.
 
-Atmosphere changes target the active world shown at the top of the panel. The controls update immediately. **Apply to Active** reruns the complete mapping, **Reset** returns to Golden Hour, **Save Look** stores versioned JSON in the scene and active world, and **Load Saved** restores it. Selecting a different world in **Activity & Safety** restores that world's saved look. Version 1 look data is validated and migrated to schema 2 when loaded.
+Atmosphere changes target the active world shown at the top of the panel. The controls update immediately. **Apply to Active** reruns the complete mapping, **Reset** returns to Golden Hour, **Save Look** stores versioned JSON in the scene and active world, and **Load Saved** restores it. Selecting a different world in **Activity & Safety** restores that world's saved look. Version 1 and 2 look data is validated and migrated to schema 3 when loaded.
 
-Clear hides `CV_Rain_Preview`; Rain displays its editable rain-streak mesh. This remains a legacy visual demonstration. Fog, wind, wetness, and animated weather transitions remain disabled and are outside Milestone 4.
+Choose Clear, Rain, Fog, or Snow. Rain and snow are editable preview meshes inside the active world's atmosphere collections; Preview Quality changes their bounded density. Fog uses the Blender World volume input. Wind displays an editable direction guide and stores its strength on `CV_Wind`. Wetness reduces roughness only on materials owned by the active CozyVerse world. Season recolors that world's foliage to Spring, Summer, Autumn, or Winter. These are art-direction previews rather than physical weather simulation or animation.
 
 ### Image to World
+
+Choose a PNG, JPEG, WebP, or TIFF and click **Analyze Composition Locally**. The image stays on your machine. CozyVerse samples its palette plus aspect, brightness, contrast, warmth, focal position, and an approximate horizon, then labels the inferred day/dusk/night direction. Choose **Blockout** for the cheapest viewport preview, **Balanced** for everyday work, or **Detailed** for more editable objects, then click **Create Editable Interpretation**.
+
+This is deliberately an approximation: local analysis does not identify exact houses, characters, streets, or props. It creates a composition-aware, editable starting point and records its source cues and quality on the world collection. Use Asset Match & Placement to replace procedural stand-ins with your own models.
 
 Choose a PNG, JPEG, WebP, or TIFF diorama reference. CozyVerse loads it locally and displays a preview. **Extract Color Palette** samples the image inside Blender; it does not upload the image. **Create Editable Interpretation** builds a new native Blender world using deterministic geometry and the extracted palette. This is an editable artistic interpretation—not exact single-image geometry reconstruction.
 
