@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.0
+
+- Added a searchable Asset Match & Placement workspace.
+- Added deterministic filename categorization and tag extraction for local models.
+- Added prompt-, scene-plan-, category-, and style-aware asset ranking.
+- Added lightweight placement proxies with location, rotation, and scale controls.
+- Added explicit per-asset import approval and a dedicated `CV_IMPORTED_ASSETS` collection.
+- Added reviewed `.blend`, GLB/GLTF, OBJ, and available FBX import paths with provenance metadata.
+- Removed imported object animation drivers and kept paid generation as an unused fallback.
+- Added unit and Blender integration coverage for matching, approval gates, proxy placement, and `.blend` import.
+
 ## 0.9.0
 
 - Replaced one-click creation with a guided Describe → Review Plan → Build workflow.

@@ -140,6 +140,29 @@ try:
     assert reference_world is not None
     assert reference_world.get("cv_reference_mode") == "local_palette_interpretation"
 
+    library_path = repo_root / "work" / "cozyverse_asset_library_test.blend"
+    bpy.data.libraries.write(str(library_path), {preexisting})
+    settings.asset_items.clear()
+    asset = settings.asset_items.add()
+    asset.name = "Test Street Prop"
+    asset.path = str(library_path)
+    asset.extension = ".blend"
+    asset.category = "PROP"
+    asset.tags = "test, street, prop"
+    asset.source = "LOCAL_FOLDER"
+    settings.asset_index = 0
+    settings.asset_place_location = (6.0, 6.0, 0.0)
+    settings.asset_place_scale = 0.75
+    assert bpy.ops.cozyverse.preview_asset_placement() == {"FINISHED"}
+    assert bpy.data.objects.get(settings.asset_preview_name).get("cv_asset_preview") is True
+    assert bpy.ops.cozyverse.place_approved_asset() == {"CANCELLED"}
+    settings.asset_placement_approved = True
+    assert bpy.ops.cozyverse.place_approved_asset() == {"FINISHED"}
+    assert bpy.data.collections.get("CV_IMPORTED_ASSETS") is not None
+    imported_wrapper = bpy.data.objects.get("CV_ASSET_Test Street Prop")
+    assert imported_wrapper is not None
+    assert imported_wrapper.get("cv_provenance") == "user_approved_local_asset"
+
     output_path = repo_root / "work" / "cozyverse_r1_smoke.blend"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))

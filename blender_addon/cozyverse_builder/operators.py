@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import bpy
 import json
-from bpy.props import BoolProperty, EnumProperty, StringProperty
+from pathlib import Path
+from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
 from bpy_extras.io_utils import ImportHelper
 
 from .atmosphere import apply_atmosphere
@@ -15,6 +16,7 @@ from .providers.contracts import build_plan
 from .core.reference_spec import dominant_palette, scan_asset_files, validate_reference_path
 from .core.style_spec import STYLE_PRESETS, style_items, styled_prompt
 from .core.scene_plan import ScenePlan, parse_plan, proposed_plan
+from .core.asset_catalog import AssetRecord, match_assets, record_from_path
 
 
 def _prompt_from_settings(settings) -> str:
@@ -491,14 +493,207 @@ class CV_OT_IndexLocalAssets(bpy.types.Operator):
             return {"CANCELLED"}
         roots = []
         if preferences.custom_asset_folder:
-            roots.append(bpy.path.abspath(preferences.custom_asset_folder))
+            roots.append((bpy.path.abspath(preferences.custom_asset_folder), "LOCAL_FOLDER"))
         if preferences.include_blender_asset_libraries:
-            roots.extend(library.path for library in context.preferences.filepaths.asset_libraries)
-        paths = scan_asset_files(roots)
+            roots.extend((library.path, "BLENDER_LIBRARY") for library in context.preferences.filepaths.asset_libraries)
+        records = []
+        seen = set()
+        for root, source in roots:
+            for path in scan_asset_files([root]):
+                if path.casefold() not in seen:
+                    records.append(record_from_path(path, source))
+                    seen.add(path.casefold())
         settings = context.scene.cozyverse
-        settings.indexed_asset_count = str(len(paths))
-        settings.indexed_asset_preview = json.dumps(paths[:100])
-        settings.reference_status = f"Indexed {len(paths)} supported local model file(s); none were opened"
+        settings.asset_items.clear()
+        for record in records[:1000]:
+            item = settings.asset_items.add()
+            item.name = record.name
+            item.path = record.path
+            item.extension = record.extension
+            item.category = record.category
+            item.tags = ", ".join(record.tags)
+            item.source = record.source
+        settings.asset_index = 0 if records else -1
+        settings.indexed_asset_count = str(len(records))
+        settings.indexed_asset_preview = json.dumps([record.as_dict() for record in records[:100]])
+        settings.asset_catalog_status = f"Indexed {len(records)} local model file(s); none were opened"
+        settings.reference_status = settings.asset_catalog_status
+        return {"FINISHED"}
+
+
+class CV_OT_MatchLocalAssets(bpy.types.Operator):
+    bl_idname = "cozyverse.match_local_assets"
+    bl_label = "Find Best Matches"
+    bl_description = "Rank indexed local assets against the current scene plan and visual style"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        records = [AssetRecord(item.path, item.name, item.extension, item.category, tuple(tag.strip() for tag in item.tags.split(",") if tag.strip()), item.source) for item in settings.asset_items]
+        style = STYLE_PRESETS.get(settings.preset, STYLE_PRESETS["COZY_VILLAGE"])
+        query = " ".join((settings.asset_search, settings.plan_title, settings.plan_world_type, _prompt_from_settings(settings)))
+        matched = match_assets(records, query, style.keywords, settings.asset_category)
+        settings.asset_items.clear()
+        for record in matched:
+            item = settings.asset_items.add()
+            item.name, item.path, item.extension, item.category = record.name, record.path, record.extension, record.category
+            item.tags, item.source, item.match_score = ", ".join(record.tags), record.source, record.score
+        settings.asset_index = 0 if matched else -1
+        settings.asset_placement_approved = False
+        settings.asset_catalog_status = f"Found {len(matched)} matching local asset(s); local files are preferred"
+        return {"FINISHED"}
+
+
+class CV_OT_SelectCatalogAsset(bpy.types.Operator):
+    bl_idname = "cozyverse.select_catalog_asset"
+    bl_label = "Select Asset"
+
+    index: IntProperty(name="Index")
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if not 0 <= self.index < len(settings.asset_items):
+            return {"CANCELLED"}
+        settings.asset_index = self.index
+        settings.asset_placement_approved = False
+        settings.asset_catalog_status = f"Selected {settings.asset_items[self.index].name}; preview placement before import"
+        return {"FINISHED"}
+
+
+def _asset_preview_collection(scene):
+    collection = bpy.data.collections.get("CV_ASSET_PREVIEW")
+    if collection is None:
+        collection = bpy.data.collections.new("CV_ASSET_PREVIEW")
+        scene.collection.children.link(collection)
+    collection["cv_managed"] = True
+    collection["cv_preview_only"] = True
+    return collection
+
+
+class CV_OT_PreviewAssetPlacement(bpy.types.Operator):
+    bl_idname = "cozyverse.preview_asset_placement"
+    bl_label = "Preview Placement"
+    bl_description = "Create a lightweight proxy without opening or importing the asset file"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if not 0 <= settings.asset_index < len(settings.asset_items):
+            settings.asset_catalog_status = "Select a catalog asset first"
+            return {"CANCELLED"}
+        item = settings.asset_items[settings.asset_index]
+        old = bpy.data.objects.get(settings.asset_preview_name)
+        if old is not None and old.get("cv_asset_preview"):
+            bpy.data.objects.remove(old, do_unlink=True)
+        bpy.ops.mesh.primitive_cube_add(location=settings.asset_place_location)
+        proxy = context.object
+        proxy.name = f"CV_PREVIEW_{item.name[:40]}"
+        proxy.rotation_euler = settings.asset_place_rotation
+        dimensions = {"CHARACTER": (0.6, 0.6, 1.8), "BUILDING": (3.0, 2.4, 2.5), "ROAD": (4.0, 1.5, 0.1), "VEGETATION": (1.2, 1.2, 2.2), "VEHICLE": (2.2, 1.1, 0.9), "FURNITURE": (1.2, 0.8, 1.0)}.get(item.category, (1.0, 1.0, 1.0))
+        proxy.dimensions = tuple(value * settings.asset_place_scale for value in dimensions)
+        proxy.display_type = "WIRE"
+        proxy.show_in_front = True
+        proxy["cv_asset_preview"] = True
+        proxy["cv_source_path"] = item.path
+        proxy["cv_category"] = item.category
+        preview = _asset_preview_collection(context.scene)
+        for owner in list(proxy.users_collection):
+            owner.objects.unlink(proxy)
+        preview.objects.link(proxy)
+        settings.asset_preview_name = proxy.name
+        settings.asset_placement_approved = False
+        settings.asset_catalog_status = f"Placement proxy ready for {item.name}; source file remains unopened"
+        return {"FINISHED"}
+
+
+def _import_blend_asset(path: str, target) -> list[bpy.types.Object]:
+    with bpy.data.libraries.load(path, link=False) as (data_from, data_to):
+        if data_from.collections:
+            data_to.collections = [data_from.collections[0]]
+        elif data_from.objects:
+            data_to.objects = [data_from.objects[0]]
+        else:
+            raise ValueError("Blend file contains no collection or object")
+    imported = []
+    for collection in data_to.collections:
+        if collection is not None:
+            target.children.link(collection)
+            imported.extend(collection.all_objects)
+    for obj in data_to.objects:
+        if obj is not None:
+            target.objects.link(obj)
+            imported.append(obj)
+    return list(dict.fromkeys(imported))
+
+
+def _import_external_asset(path: str, extension: str, target) -> list[bpy.types.Object]:
+    before = set(bpy.data.objects)
+    if extension in {".glb", ".gltf"}:
+        bpy.ops.import_scene.gltf(filepath=path)
+    elif extension == ".obj":
+        bpy.ops.wm.obj_import(filepath=path)
+    elif extension == ".fbx" and hasattr(bpy.ops.wm, "fbx_import"):
+        bpy.ops.wm.fbx_import(filepath=path)
+    else:
+        raise ValueError(f"Import is not available for {extension} in this Blender installation")
+    imported = [obj for obj in bpy.data.objects if obj not in before]
+    for obj in imported:
+        for owner in list(obj.users_collection):
+            owner.objects.unlink(obj)
+        target.objects.link(obj)
+    return imported
+
+
+class CV_OT_PlaceApprovedAsset(bpy.types.Operator):
+    bl_idname = "cozyverse.place_approved_asset"
+    bl_label = "Import Approved Asset"
+    bl_description = "Import the reviewed local model into a dedicated editable collection"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if not settings.asset_placement_approved or not 0 <= settings.asset_index < len(settings.asset_items):
+            settings.asset_catalog_status = "Preview and approve the selected local asset before importing"
+            return {"CANCELLED"}
+        item = settings.asset_items[settings.asset_index]
+        path = Path(bpy.path.abspath(item.path)).resolve()
+        if not path.is_file() or path.suffix.lower() not in {".blend", ".glb", ".gltf", ".fbx", ".obj"}:
+            settings.asset_catalog_status = "The selected asset is missing or has an unsupported format"
+            return {"CANCELLED"}
+        target = bpy.data.collections.get("CV_IMPORTED_ASSETS")
+        if target is None:
+            target = bpy.data.collections.new("CV_IMPORTED_ASSETS")
+            context.scene.collection.children.link(target)
+        try:
+            imported = _import_blend_asset(str(path), target) if item.extension == ".blend" else _import_external_asset(str(path), item.extension, target)
+        except (RuntimeError, ValueError) as exc:
+            settings.asset_catalog_status = f"Import failed: {exc}"
+            return {"CANCELLED"}
+        if not imported:
+            settings.asset_catalog_status = "Import finished but no objects were found"
+            return {"CANCELLED"}
+        wrapper = bpy.data.objects.new(f"CV_ASSET_{item.name[:40]}", None)
+        target.objects.link(wrapper)
+        wrapper.location = settings.asset_place_location
+        wrapper.rotation_euler = settings.asset_place_rotation
+        wrapper.scale = (settings.asset_place_scale,) * 3
+        for obj in imported:
+            if obj.parent is None:
+                obj.parent = wrapper
+            obj["cv_managed"] = True
+            obj["cv_asset_source"] = str(path)
+            obj["cv_asset_category"] = item.category
+            if obj.animation_data and obj.animation_data.drivers:
+                obj.animation_data_clear()
+        wrapper["cv_managed"] = True
+        wrapper["cv_asset_source"] = str(path)
+        wrapper["cv_asset_category"] = item.category
+        wrapper["cv_provenance"] = "user_approved_local_asset"
+        preview = bpy.data.objects.get(settings.asset_preview_name)
+        if preview is not None and preview.get("cv_asset_preview"):
+            bpy.data.objects.remove(preview, do_unlink=True)
+        settings.asset_preview_name = ""
+        settings.asset_placement_approved = False
+        settings.asset_catalog_status = f"Imported {item.name}: {len(imported)} editable object(s)"
         return {"FINISHED"}
 
 
@@ -799,6 +994,10 @@ _CLASSES = (
     CV_OT_SelectReferenceImage,
     CV_OT_AnalyzeReferenceLocally,
     CV_OT_IndexLocalAssets,
+    CV_OT_MatchLocalAssets,
+    CV_OT_SelectCatalogAsset,
+    CV_OT_PreviewAssetPlacement,
+    CV_OT_PlaceApprovedAsset,
     CV_OT_RecreateReferenceMock,
     CV_OT_EditMultilinePrompt,
     CV_OT_UseMultilinePrompt,

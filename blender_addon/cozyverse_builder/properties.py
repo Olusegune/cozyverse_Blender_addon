@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
+from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty, StringProperty
 
 from .core.demo_spec import DEFAULT_PROMPT
 from .core.style_spec import style_items
@@ -125,6 +125,16 @@ class CV_SessionSecrets(bpy.types.PropertyGroup):
     )
 
 
+class CV_AssetItem(bpy.types.PropertyGroup):
+    name: StringProperty(name="Name")
+    path: StringProperty(name="Path", subtype="FILE_PATH")
+    extension: StringProperty(name="Format")
+    category: StringProperty(name="Category")
+    tags: StringProperty(name="Tags")
+    source: StringProperty(name="Source")
+    match_score: FloatProperty(name="Match", default=0.0)
+
+
 class CV_SceneSettings(bpy.types.PropertyGroup):
     onboarding_complete: BoolProperty(name="Onboarding Complete", default=False)
     workflow_step: EnumProperty(
@@ -172,6 +182,20 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     last_error: StringProperty(name="Last Error", default="", maxlen=1024)
     recovery_hint: StringProperty(name="Recovery", default="", maxlen=1024)
     active_world_name: StringProperty(name="Active World", default="")
+    asset_items: CollectionProperty(type=CV_AssetItem)
+    asset_index: IntProperty(name="Selected Asset", default=-1)
+    asset_search: StringProperty(name="Search Assets", default="", maxlen=256)
+    asset_category: EnumProperty(
+        name="Category",
+        items=(("ALL", "All", "All indexed assets"), ("CHARACTER", "Characters", "Character models"), ("BUILDING", "Buildings", "Architecture"), ("ROAD", "Roads", "Roads and paths"), ("PROP", "Props", "Set props"), ("VEGETATION", "Vegetation", "Plants and trees"), ("VEHICLE", "Vehicles", "Vehicles"), ("FURNITURE", "Furniture", "Furniture"), ("OTHER", "Other", "Uncategorized")),
+        default="ALL",
+    )
+    asset_catalog_status: StringProperty(name="Catalog Status", default="Index your local sources to begin")
+    asset_preview_name: StringProperty(name="Preview Object", default="")
+    asset_place_location: FloatVectorProperty(name="Location", subtype="TRANSLATION", default=(0.0, 0.0, 0.0))
+    asset_place_rotation: FloatVectorProperty(name="Rotation", subtype="EULER", default=(0.0, 0.0, 0.0))
+    asset_place_scale: FloatProperty(name="Scale", default=1.0, min=0.01, max=100.0)
+    asset_placement_approved: BoolProperty(name="I approve importing this local asset", default=False)
     reference_image_path: StringProperty(
         name="Reference Image",
         description="Local diorama image used for an editable offline interpretation",
@@ -312,7 +336,7 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     generation_status: StringProperty(name="Generation Status", default="Not prepared")
 
 
-_CLASSES = (CV_AddonPreferences, CV_SessionSecrets, CV_SceneSettings)
+_CLASSES = (CV_AddonPreferences, CV_SessionSecrets, CV_AssetItem, CV_SceneSettings)
 
 
 def register() -> None:

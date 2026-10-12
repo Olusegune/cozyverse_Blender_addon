@@ -214,6 +214,58 @@ def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
     note.label(text="Exact AI vision reconstruction is not enabled")
 
 
+def _draw_asset_library(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
+    preferences = _addon_preferences(context)
+    source = layout.box()
+    source.label(text="LOCAL ASSET CATALOG", icon="ASSET_MANAGER")
+    source.label(text="Your files are preferred before paid generation.", icon="LOCKED")
+    if preferences is not None:
+        source.prop(preferences, "include_blender_asset_libraries")
+        source.prop(preferences, "custom_asset_folder")
+    source.operator("cozyverse.index_local_assets", text="INDEX LOCAL SOURCES", icon="FILE_REFRESH")
+    source.label(text=settings.asset_catalog_status, icon="INFO")
+
+    search = layout.box()
+    search.label(text="SEARCH & MATCH", icon="VIEWZOOM")
+    search.prop(settings, "asset_search", text="")
+    search.prop(settings, "asset_category", text="")
+    search.operator("cozyverse.match_local_assets", text="FIND BEST MATCHES", icon="SORTSIZE")
+
+    results = layout.box()
+    results.label(text=f"RESULTS ({len(settings.asset_items)})", icon="PRESET")
+    if not settings.asset_items:
+        results.label(text="Index a folder or Blender Asset Library to begin.")
+    for index, item in enumerate(settings.asset_items[:10]):
+        row = results.row(align=True)
+        icon = "RADIOBUT_ON" if settings.asset_index == index else "RADIOBUT_OFF"
+        choose = row.operator("cozyverse.select_catalog_asset", text=item.name[:28], icon=icon)
+        choose.index = index
+        row.label(text=item.category.title())
+        if item.match_score:
+            row.label(text=f"{item.match_score:.1f}")
+
+    if 0 <= settings.asset_index < len(settings.asset_items):
+        item = settings.asset_items[settings.asset_index]
+        detail = layout.box()
+        detail.label(text="SELECTED ASSET", icon="FILE_3D")
+        detail.label(text=item.name)
+        detail.label(text=f"{item.category.title()} • {item.extension.upper().lstrip('.')} • {item.source.replace('_', ' ').title()}")
+        for line in _wrapped_lines(item.tags, width=40, limit=2):
+            detail.label(text=line, icon="TAG")
+        placement = detail.box()
+        placement.label(text="PLACEMENT", icon="ORIENTATION_LOCAL")
+        placement.prop(settings, "asset_place_location")
+        placement.prop(settings, "asset_place_rotation")
+        placement.prop(settings, "asset_place_scale")
+        placement.operator("cozyverse.preview_asset_placement", text="PREVIEW WITH PROXY", icon="CUBE")
+        placement.prop(settings, "asset_placement_approved")
+        place = placement.column(align=True)
+        place.enabled = settings.asset_placement_approved and bool(settings.asset_preview_name)
+        place.scale_y = 1.35
+        place.operator("cozyverse.place_approved_asset", text="IMPORT APPROVED ASSET", icon="IMPORT")
+        detail.label(text="Import destination: CV_IMPORTED_ASSETS", icon="OUTLINER_COLLECTION")
+
+
 def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
     state = layout.box()
     state.label(text="SYSTEM STATUS", icon="INFO")
@@ -321,7 +373,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.9.0 Usability Recovery")
+    about.label(text="CozyVerse 0.10.0 Asset Match & Placement")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
@@ -351,6 +403,15 @@ class CV_PT_Atmosphere(_CVChildPanel, bpy.types.Panel):
 
     def draw(self, context: bpy.types.Context) -> None:
         _draw_atmosphere(self.layout, context.scene.cozyverse)
+
+
+class CV_PT_AssetLibrary(_CVChildPanel, bpy.types.Panel):
+    bl_idname = "CV_PT_asset_library"
+    bl_label = "Asset Match & Placement"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        _draw_asset_library(context, self.layout, context.scene.cozyverse)
 
 
 class CV_PT_ImageToWorld(_CVChildPanel, bpy.types.Panel):
@@ -408,7 +469,7 @@ class CV_TEXT_PT_Prompt(bpy.types.Panel):
         layout.label(text="Then choose Build Editable World.", icon="INFO")
 
 
-_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_ImageToWorld, CV_PT_Atmosphere, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
+_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_AssetLibrary, CV_PT_ImageToWorld, CV_PT_Atmosphere, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
 
 
 def register() -> None:

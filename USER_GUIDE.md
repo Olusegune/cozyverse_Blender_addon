@@ -61,7 +61,20 @@ Choose Local Only or configure fields for a future AI provider adapter. The foun
 
 The 3D Generation section provides separate masked session fields for Tripo and Meshy. Select a provider and use **Check Setup Locally** to confirm that its key is loaded. This check never contacts Tripo or Meshy. Generation submission remains disabled until a later approved adapter adds request previews, estimated cost, explicit per-job consent, polling, cancellation, download validation, and provenance.
 
-Under **Your Asset Sources**, CozyVerse can index Blender Asset Library folders already configured in Blender and one optional local folder. Supported files are `.blend`, `.glb`, `.gltf`, `.fbx`, and `.obj`. This milestone records filenames only; it does not open, execute, or automatically import those files. Asset matching and reviewed placement are the next stage.
+Under **Your Asset Sources**, CozyVerse can index Blender Asset Library folders already configured in Blender and one optional local folder. Supported files are `.blend`, `.glb`, `.gltf`, `.fbx`, and `.obj`. Indexing reads filenames only and does not open model files.
+
+### Asset Match & Placement
+
+1. Configure a local folder or enable your configured Blender Asset Libraries.
+2. Select **Index Local Sources**. CozyVerse derives human-readable names, categories, and search tags from filenames and folders.
+3. Enter optional search terms, choose a category, and select **Find Best Matches**. Ranking considers the current prompt, scene-plan title and composition, visual-style keywords, and your search.
+4. Select a result. Review its source, format, category, and tags.
+5. Set location, rotation, and scale, then choose **Preview with Proxy**. The wireframe proxy is safe and does not open the source file.
+6. Enable **I approve importing this local asset** and choose **Import Approved Asset**.
+
+Imported content is placed under `CV_IMPORTED_ASSETS` and wrapped in a transform object named `CV_ASSET_*`. The wrapper records the source path, category, and `user_approved_local_asset` provenance. Imported objects remain editable. CozyVerse removes animation drivers from imported objects and does not execute generated Python.
+
+`.blend`, GLB/GLTF, and OBJ are supported when their Blender importers are available. FBX depends on the importer included with the installed Blender version. A failed import leaves the existing world intact and reports a recovery message.
 
 ### 3D Asset Factory
 

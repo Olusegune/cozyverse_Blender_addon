@@ -1,6 +1,6 @@
 # CozyVerse Builder
 
-CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.9.0 introduces a guided Describe → Review Plan → Build workflow, actionable recovery messages, reversible world-version management, and manual-edit protection.
+CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.10.0 adds reviewed local Asset Match & Placement, including searchable catalog records, style-aware recommendations, placement proxies, and approval-gated imports.
 
 The foundation build provides:
 
@@ -10,6 +10,7 @@ The foundation build provides:
 - twelve curated visual styles, including Retro Sci-Fi, Solarpunk, Cozy Fantasy, Clay, Paper Craft, and Art Deco;
 - a validated editable scene plan that is reviewed before Blender objects are created;
 - non-destructive world versions with selection, framing, hiding, and manual-edit inspection;
+- local asset categorization, matching, placement preview, and approved import into an editable quarantine collection;
 - visible Create, Atmosphere, Activity, and Settings workspaces;
 - scene-persistent prompt, preset, status, and last-run settings;
 - a full-area multiline prompt editor with wrapped sidebar preview;

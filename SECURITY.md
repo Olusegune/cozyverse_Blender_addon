@@ -1,6 +1,6 @@
 # Credential and Data Safety
 
-CozyVerse Builder 0.9.0 keeps live provider submission disabled. Scene plans are validated structured data rather than executable Python. Reference images remain local, and asset indexing reads supported filenames without opening model files. Its current generation workflow creates request previews and mock assets without making a network request.
+CozyVerse Builder 0.10.0 keeps live provider submission disabled. Scene plans are validated structured data rather than executable Python. Asset indexing and placement proxies do not open model files. A local model is imported only after explicit approval, imported animation drivers are removed, and provenance is recorded. Reference images remain local, and no provider request is made.
 
 Director, Tripo, and Meshy API keys entered in the sidebar are runtime-only Blender properties marked `SKIP_SAVE`. They are masked in the interface and excluded from scene properties. Automated Blender testing verifies that known secret sentinels do not appear in the saved `.blend` bytes.
 
