@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0
+
+- Completed Milestone 5 safe revisions and beta hardening.
+- Added fingerprinted previews of changed plan fields plus created, deleted, preserved, protected, and manually edited content.
+- Invalidated approval whenever a reviewed plan changes.
+- Kept revisions non-destructive by creating lineage-linked world versions with zero source deletions.
+- Added explicit revision cancellation with no scene mutation.
+- Added timestamped `.blend` recovery checkpoints that preserve the active file path.
+- Added a bounded scene activity log with credential-pattern and session-secret redaction.
+- Added pure-Python, Blender background, and real foreground Blender Undo coverage.
+
 ## 0.12.0
 
 - Completed Milestone 4 Atmosphere Lab and Cozy Engine controls without rebuilding geometry.

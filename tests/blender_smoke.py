@@ -15,13 +15,15 @@ sys.path.insert(0, str(addon_parent))
 
 addon = importlib.import_module("cozyverse_builder")
 from cozyverse_builder.providers.contracts import build_plan
-from cozyverse_builder.operators import _compose_prompt
+from cozyverse_builder.operators import CV_OT_BuildApprovedPlan, _compose_prompt
 
 addon.register()
 try:
     assert hasattr(bpy.types.Scene, "cozyverse")
     assert hasattr(bpy.types.WindowManager, "cozyverse_secrets")
     settings = bpy.context.scene.cozyverse
+    assert bpy.data.filepath == ""
+    assert bpy.ops.cozyverse.create_checkpoint() == {"CANCELLED"}
 
     composed = _compose_prompt("a tiny harbor", "a lighthouse", "misty dawn", "boats", "modern cars")
     assert composed.startswith("Create a tiny harbor") and composed.endswith(".")
@@ -50,7 +52,15 @@ try:
     assert bpy.ops.cozyverse.prepare_scene_plan() == {"FINISHED"}
     assert settings.workflow_step == "REVIEW"
     assert settings.scene_plan_json
+    assert settings.revision_preview_json
+    assert settings.revision_deleted == 0
+    assert settings.revision_source_world == ""
     assert bpy.ops.cozyverse.build_approved_plan() == {"CANCELLED"}
+    settings.plan_approved = True
+    settings.plan_prop_count += 1
+    assert bpy.ops.cozyverse.build_approved_plan() == {"CANCELLED"}
+    assert settings.last_error == "The plan changed after preview"
+    assert settings.plan_approved is False
     settings.plan_approved = True
     result = bpy.ops.cozyverse.build_approved_plan()
     assert result == {"FINISHED"}, result
@@ -149,6 +159,15 @@ try:
     assert bpy.ops.cozyverse.load_atmosphere_preset() == {"FINISHED"}
     assert settings.time_hour == 10.0
     assert '"schema_version":"2.0"' in bpy.data.collections["CV_WORLD_002"]["cv_atmosphere_values"]
+    settings.prompt = "Create a revised village with a larger market square"
+    settings.prompt_text = None
+    world_count_before_cancel = len([item for item in bpy.data.collections if item.get("cv_managed") and item.name.startswith("CV_WORLD")])
+    assert bpy.ops.cozyverse.prepare_scene_plan() == {"FINISHED"}
+    assert settings.revision_source_world == "CV_WORLD_002"
+    assert settings.revision_skipped > 0
+    assert settings.revision_deleted == 0
+    assert bpy.ops.cozyverse.cancel_revision() == {"FINISHED"}
+    assert len([item for item in bpy.data.collections if item.get("cv_managed") and item.name.startswith("CV_WORLD")]) == world_count_before_cancel
     assert bpy.data.objects.get("CV_Hero_Command_Module") is store
     assert store.location.x == edited_x
     assert tuple(store.data.materials[0].diffuse_color) == first_material_color
@@ -193,9 +212,18 @@ try:
     assert imported_wrapper is not None
     assert imported_wrapper.get("cv_provenance") == "user_approved_local_asset"
 
+    assert "UNDO" in CV_OT_BuildApprovedPlan.bl_options
+
     output_path = repo_root / "work" / "cozyverse_r1_smoke.blend"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))
+    active_path = bpy.data.filepath
+    assert bpy.ops.cozyverse.create_checkpoint() == {"FINISHED"}
+    checkpoint_path = pathlib.Path(settings.checkpoint_path)
+    assert checkpoint_path.exists()
+    assert bpy.data.filepath == active_path
+    assert settings.activity_log
+    assert all(secret_sentinel not in item.message for item in settings.activity_log)
     assert secret_sentinel.encode("utf-8") not in output_path.read_bytes()
     assert (secret_sentinel + "-tripo").encode("utf-8") not in output_path.read_bytes()
     assert (secret_sentinel + "-meshy").encode("utf-8") not in output_path.read_bytes()

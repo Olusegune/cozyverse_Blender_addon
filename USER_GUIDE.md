@@ -19,6 +19,12 @@ Creation follows three visible steps: **Describe**, **Review**, and **Built**. C
 
 Select **Review World Plan** before building. CozyVerse proposes an editable composition, base shape, camera type, number of buildings, props, plants and characters, and whether the scene needs a road or main path. This step creates no Blender objects. Review the proposal, enable **I reviewed this plan**, and select **Build New Version**.
 
+#### Safe revision preview
+
+The review step includes a fingerprinted safety summary before approval. It reports plan fields that changed, estimated new objects, objects that will be deleted, objects preserved in the source version, protected objects, and detected transform edits. CozyVerse revisions always report zero deletions because applying a revision creates a new `CV_WORLD` version.
+
+If any reviewed plan field changes, the previous approval becomes invalid. Select **Refresh Preview**, review the new summary, and approve again. **Cancel** discards the pending preview without changing Blender objects. A completed world records its source version, approved preview, and plan fingerprint as collection metadata.
+
 Every build creates a new numbered `CV_WORLD` collection. Existing versions and manual edits are never overwritten. The scene plan is saved as structured JSON on the collection; it is data, not executable Python.
 
 #### Procedural composition families
@@ -62,6 +68,14 @@ The resulting world collection records the local reference path and reconstructi
 Review the last operation, offline-engine state, and latest build prompt. A success message means Blender completed the operator; suggestions or text alone never imply that the scene changed.
 
 The **World Versions** list shows up to eight recent CozyVerse worlds. Select a version to make it active and frame it in the 3D View. The eye button hides or shows a version without deleting it. CozyVerse does not offer destructive deletion from this panel.
+
+The **Redacted Activity Log** keeps the latest 50 milestone operations in the scene. Credential-shaped values and loaded session keys are removed before storage. This log is intended for recovery context, not provider request bodies.
+
+### Recovery checkpoints
+
+Save the project normally once, then select **Create Recovery Checkpoint** from the completed-world or Activity panel. CozyVerse writes a timestamped `*.cv-checkpoint-*.blend` copy beside the active project without changing the current file path. Restore it explicitly with **File > Open** if needed. Unsaved projects receive an actionable prompt instead of writing to an arbitrary location.
+
+Blender Undo is also enabled on build operators. Undo immediately after an approved revision removes the new version while leaving the source version intact. Once you continue editing, prefer a checkpoint because Blender's global undo history is sequential and cannot independently remove an older operation while retaining every later edit.
 
 ### Recovery messages
 

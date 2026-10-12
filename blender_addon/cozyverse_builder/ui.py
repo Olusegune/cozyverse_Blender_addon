@@ -123,9 +123,23 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
         style = plan.box()
         style.label(text="VISUAL DIRECTION", icon="BRUSH_DATA")
         style.prop(settings, "preset", text="")
+        revision = plan.box()
+        revision.label(text="SAFE REVISION PREVIEW", icon="LOCKED")
+        revision.label(text=f"Source: {settings.revision_source_world or 'New world'}")
+        metrics = revision.grid_flow(row_major=True, columns=2, align=True)
+        metrics.label(text=f"Create: {settings.revision_created}", icon="ADD")
+        metrics.label(text=f"Changed fields: {settings.revision_changed}", icon="FILE_TICK")
+        metrics.label(text=f"Delete: {settings.revision_deleted}", icon="TRASH")
+        metrics.label(text=f"Preserve: {settings.revision_skipped}", icon="LOCKED")
+        if settings.revision_protected or settings.revision_manual_edits:
+            warning = revision.box()
+            warning.label(text=f"Protected objects: {settings.revision_protected}", icon="LOCKED")
+            warning.label(text=f"Manual edits preserved: {settings.revision_manual_edits}", icon="UV_SYNC_SELECT")
+        revision.label(text="A revision creates a new version; existing objects are never deleted.", icon="INFO")
+        revision.operator("cozyverse.refresh_revision_preview", text="REFRESH PREVIEW", icon="FILE_REFRESH")
         plan.prop(settings, "plan_approved", icon="CHECKMARK")
         actions = layout.row(align=True)
-        actions.operator("cozyverse.back_to_description", text="Back", icon="BACK")
+        actions.operator("cozyverse.cancel_revision", text="Cancel", icon="X")
         build = actions.row(align=True)
         build.enabled = settings.plan_approved
         build.scale_y = 1.45
@@ -144,6 +158,9 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
         row = result.row(align=True)
         row.operator("cozyverse.lock_selected_objects", text="Protect Selected", icon="LOCKED")
         row.operator("cozyverse.inspect_manual_edits", text="Check Edits", icon="UV_SYNC_SELECT")
+        result.operator("cozyverse.create_checkpoint", text="CREATE RECOVERY CHECKPOINT", icon="RECOVER_LAST")
+        if settings.checkpoint_path:
+            result.label(text="Checkpoint ready in the project folder", icon="FILE_TICK")
         next_version = layout.column(align=True)
         next_version.operator("cozyverse.back_to_description", text="CREATE ANOTHER VERSION", icon="DUPLICATE")
 
@@ -304,6 +321,19 @@ def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
         visibility.world_name = world.name
         visibility.hidden = not world.hide_viewport
     versions.label(text="Hide is reversible; versions are never deleted here.", icon="INFO")
+    recovery = layout.box()
+    recovery.label(text="RECOVERY", icon="RECOVER_LAST")
+    recovery.operator("cozyverse.create_checkpoint", text="Create Project Checkpoint", icon="FILE_BACKUP")
+    if settings.checkpoint_path:
+        recovery.label(text=settings.checkpoint_path[-58:])
+    log = layout.box()
+    log.label(text="REDACTED ACTIVITY LOG", icon="TEXT")
+    if not settings.activity_log:
+        log.label(text="No recorded milestone operations yet")
+    for item in reversed(list(settings.activity_log)[-8:]):
+        row = log.row(align=True)
+        row.label(text=item.level, icon="ERROR" if item.level == "ERROR" else "DOT")
+        row.label(text=item.message[:58])
 
 
 def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
@@ -386,7 +416,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.12.0 Atmosphere Lab")
+    about.label(text="CozyVerse 0.13.0 Safe Revisions Beta")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):

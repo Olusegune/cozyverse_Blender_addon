@@ -9,7 +9,7 @@ CozyVerse Builder targets Blender 4.5 LTS through 5.2 LTS. Automated Blender tes
 1. Open Blender.
 2. Choose **Edit > Preferences > Get Extensions**.
 3. Open the menu in the upper-right and choose **Install from Disk**.
-4. Select `outputs/cozyverse_builder-0.12.0.zip`.
+4. Select `outputs/cozyverse_builder-0.13.0.zip`.
 5. Enable **CozyVerse Builder** if Blender does not enable it automatically.
 6. Open the 3D View and press `N` to show the sidebar.
 7. Select the **CozyVerse** tab.
@@ -24,7 +24,7 @@ CozyVerse Builder targets Blender 4.5 LTS through 5.2 LTS. Automated Blender tes
 6. Use Blender Undo immediately after an operation to revert it.
 7. Save and reopen the `.blend` file to confirm the scene and CozyVerse settings persist.
 
-Version 0.12.0 never connects to a network or calls a paid service. Each build creates a new numbered `CV_WORLD` collection, preserving earlier generated worlds and unrelated user objects.
+Version 0.13.0 never connects to a network or calls a paid service. Each approved revision creates a new numbered `CV_WORLD` collection, preserving earlier generated worlds, locks, manual edits, and unrelated user objects.
 
 ## Developer test commands
 
@@ -33,6 +33,7 @@ From the repository root in PowerShell:
 ```powershell
 & 'C:\Users\eduni\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -p 'test_*.py' -v
 & 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --factory-startup --python tests\blender_smoke.py
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --factory-startup --python tests\blender_undo_smoke.py
 & 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --factory-startup --python tests\render_r1_demo.py
 & 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --command extension validate blender_addon\cozyverse_builder
 ```

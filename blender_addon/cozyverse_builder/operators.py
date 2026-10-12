@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import bpy
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
 from bpy_extras.io_utils import ImportHelper
@@ -17,6 +18,7 @@ from .core.reference_spec import dominant_palette, scan_asset_files, validate_re
 from .core.style_spec import STYLE_PRESETS, style_items, styled_prompt
 from .core.scene_plan import ScenePlan, parse_plan, proposed_plan
 from .core.asset_catalog import AssetRecord, match_assets, record_from_path
+from .core.revision_spec import make_revision_preview, plan_fingerprint, redact_log_message
 
 
 def _prompt_from_settings(settings) -> str:
@@ -66,6 +68,60 @@ def _world_objects(collection):
     for child in collection.children:
         objects.extend(_world_objects(child))
     return objects
+
+
+def _known_secrets(context: bpy.types.Context) -> tuple[str, ...]:
+    secrets = getattr(context.window_manager, "cozyverse_secrets", None)
+    if secrets is None:
+        return ()
+    return tuple(getattr(secrets, name, "") for name in ("api_key", "tripo_api_key", "meshy_api_key"))
+
+
+def _log_activity(context: bpy.types.Context, level: str, message: str) -> None:
+    settings = context.scene.cozyverse
+    item = settings.activity_log.add()
+    item.timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+    item.level = level[:16]
+    item.message = redact_log_message(message, _known_secrets(context))
+    while len(settings.activity_log) > 50:
+        settings.activity_log.remove(0)
+
+
+def _manual_state(world) -> tuple[int, int]:
+    protected = 0
+    edited = 0
+    for obj in _world_objects(world) if world is not None else ():
+        protected += bool(obj.get("cv_locked"))
+        baseline = obj.get("cv_generated_transform")
+        current = json.dumps([round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)])
+        edited += bool(baseline and baseline != current)
+    return protected, edited
+
+
+def _refresh_revision_preview(context: bpy.types.Context, plan: ScenePlan):
+    settings = context.scene.cozyverse
+    source = bpy.data.collections.get(settings.active_world_name)
+    old_plan = None
+    objects = []
+    if source is not None and source.get("cv_managed"):
+        objects = _world_objects(source)
+        try:
+            old_plan = json.loads(source.get("cv_scene_plan") or "null")
+        except (TypeError, json.JSONDecodeError):
+            old_plan = None
+    protected, edited = _manual_state(source)
+    new_plan = json.loads(plan.canonical_json())
+    preview = make_revision_preview(old_plan, new_plan, source.name if source else "", len(objects), protected, edited)
+    settings.revision_preview_json = preview.canonical_json()
+    settings.revision_fingerprint = preview.plan_fingerprint
+    settings.revision_source_world = preview.source_world
+    settings.revision_changed = len(preview.changed_fields)
+    settings.revision_created = preview.created_objects
+    settings.revision_deleted = preview.deleted_objects
+    settings.revision_skipped = preview.skipped_objects
+    settings.revision_protected = preview.protected_objects
+    settings.revision_manual_edits = preview.manually_edited_objects
+    return preview
 
 
 def _atmosphere_from_settings(settings) -> AtmosphereValues:
@@ -142,12 +198,14 @@ class CV_OT_PrepareScenePlan(bpy.types.Operator):
         settings.plan_character_count = plan.character_count
         settings.plan_include_road = plan.include_road
         settings.scene_plan_json = plan.canonical_json()
+        _refresh_revision_preview(context, plan)
         settings.plan_approved = False
         settings.workflow_step = "REVIEW"
         settings.operation_progress = 0.35
         settings.last_error = ""
         settings.recovery_hint = "Review every section, approve the plan, then build a new version."
         settings.status = "Plan ready for review; no objects were created"
+        _log_activity(context, "REVIEW", f"Prepared revision preview for {settings.revision_source_world or 'new world'}")
         return {"FINISHED"}
 
 
@@ -161,6 +219,45 @@ class CV_OT_BackToDescription(bpy.types.Operator):
         settings.plan_approved = False
         settings.operation_progress = 0.0
         settings.status = "Update the description, then review a new plan"
+        return {"FINISHED"}
+
+
+class CV_OT_RefreshRevisionPreview(bpy.types.Operator):
+    bl_idname = "cozyverse.refresh_revision_preview"
+    bl_label = "Refresh Revision Preview"
+    bl_description = "Recalculate created, changed, deleted, preserved, locked, and manually edited content without changing the scene"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        try:
+            plan = _plan_from_settings(settings)
+            settings.scene_plan_json = plan.canonical_json()
+            preview = _refresh_revision_preview(context, plan)
+        except (TypeError, ValueError) as exc:
+            settings.last_error = f"Preview stopped: {exc}"
+            _log_activity(context, "ERROR", settings.last_error)
+            return {"CANCELLED"}
+        settings.plan_approved = False
+        settings.last_error = ""
+        settings.status = "Revision preview refreshed; review it before approval"
+        _log_activity(context, "REVIEW", f"Revision preview: {len(preview.changed_fields)} changed fields, {preview.created_objects} created, 0 deleted")
+        return {"FINISHED"}
+
+
+class CV_OT_CancelRevision(bpy.types.Operator):
+    bl_idname = "cozyverse.cancel_revision"
+    bl_label = "Cancel Revision"
+    bl_description = "Discard the pending preview without changing any Blender objects"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        settings.revision_preview_json = ""
+        settings.revision_fingerprint = ""
+        settings.plan_approved = False
+        settings.workflow_step = "DESCRIBE"
+        settings.operation_progress = 0.0
+        settings.status = "Revision cancelled; the scene was not changed"
+        _log_activity(context, "CANCEL", "Revision cancelled before apply; no scene mutation")
         return {"FINISHED"}
 
 
@@ -179,10 +276,25 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             return {"CANCELLED"}
         try:
             plan = _plan_from_settings(settings)
-            settings.scene_plan_json = plan.canonical_json()
+            current_plan_json = plan.canonical_json()
+            current_fingerprint = plan_fingerprint(current_plan_json)
+            if not settings.revision_preview_json or current_fingerprint != settings.revision_fingerprint:
+                settings.scene_plan_json = current_plan_json
+                _refresh_revision_preview(context, plan)
+                settings.plan_approved = False
+                settings.last_error = "The plan changed after preview"
+                settings.recovery_hint = "Review the refreshed revision summary, approve it again, then build."
+                settings.status = settings.last_error
+                _log_activity(context, "BLOCKED", settings.last_error)
+                return {"CANCELLED"}
+            settings.scene_plan_json = current_plan_json
             settings.operation_progress = 0.55
             settings.status = "Building a new editable world version..."
+            source_world = settings.revision_source_world
             world = build_offline_world(context.scene, settings, plan.prompt, json.loads(settings.scene_plan_json))
+            world["cv_revision_source"] = source_world
+            world["cv_revision_preview"] = settings.revision_preview_json
+            world["cv_revision_fingerprint"] = settings.revision_fingerprint
             settings.operation_progress = 1.0
             settings.workflow_step = "BUILT"
             settings.active_world_name = world.name
@@ -190,6 +302,7 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             settings.last_error = ""
             settings.recovery_hint = "Use Select & Frame to inspect it. Previous versions remain untouched."
             settings.status = f"World ready: {world.name}"
+            _log_activity(context, "SUCCESS", f"Built {world.name} from approved revision preview; source={source_world or 'new'}")
             self.report({"INFO"}, settings.status)
             return {"FINISHED"}
         except (ValueError, RuntimeError) as exc:
@@ -197,6 +310,7 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             settings.recovery_hint = "Return to the plan, correct invalid values, and try again."
             settings.operation_progress = 0.35
             settings.status = settings.last_error
+            _log_activity(context, "ERROR", settings.last_error)
             self.report({"ERROR"}, settings.last_error)
             return {"CANCELLED"}
 
@@ -293,6 +407,39 @@ class CV_OT_LockSelectedObjects(bpy.types.Operator):
         for obj in selected:
             obj["cv_locked"] = True
         context.scene.cozyverse.status = f"Protected {len(selected)} selected object(s)"
+        return {"FINISHED"}
+
+
+class CV_OT_CreateCheckpoint(bpy.types.Operator):
+    bl_idname = "cozyverse.create_checkpoint"
+    bl_label = "Create Recovery Checkpoint"
+    bl_description = "Save a timestamped copy of the current .blend without changing the active file"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if not bpy.data.filepath:
+            settings.status = "Save the .blend file once before creating a checkpoint"
+            settings.recovery_hint = "Use File > Save As, then create the checkpoint again."
+            _log_activity(context, "BLOCKED", settings.status)
+            return {"CANCELLED"}
+        current = Path(bpy.data.filepath)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        checkpoint = current.with_name(f"{current.stem}.cv-checkpoint-{stamp}{current.suffix}")
+        suffix = 2
+        while checkpoint.exists():
+            checkpoint = current.with_name(f"{current.stem}.cv-checkpoint-{stamp}-{suffix}{current.suffix}")
+            suffix += 1
+        try:
+            bpy.ops.wm.save_as_mainfile(filepath=str(checkpoint), copy=True)
+        except RuntimeError as exc:
+            settings.status = f"Checkpoint failed: {exc}"
+            settings.recovery_hint = "Confirm the project folder is writable and try again."
+            _log_activity(context, "ERROR", settings.status)
+            return {"CANCELLED"}
+        settings.checkpoint_path = str(checkpoint)
+        settings.status = f"Recovery checkpoint created: {checkpoint.name}"
+        settings.recovery_hint = "Use File > Open to restore this copy if a later operation fails."
+        _log_activity(context, "CHECKPOINT", f"Created recovery checkpoint {checkpoint.name}")
         return {"FINISHED"}
 
 
@@ -1051,11 +1198,14 @@ _CLASSES = (
     CV_OT_DismissOnboarding,
     CV_OT_PrepareScenePlan,
     CV_OT_BackToDescription,
+    CV_OT_RefreshRevisionPreview,
+    CV_OT_CancelRevision,
     CV_OT_BuildApprovedPlan,
     CV_OT_SelectWorld,
     CV_OT_ArchiveWorld,
     CV_OT_InspectManualEdits,
     CV_OT_LockSelectedObjects,
+    CV_OT_CreateCheckpoint,
     CV_OT_CreateLocalDemo,
     CV_OT_PromptComposer,
     CV_OT_ApplyPromptTemplate,

@@ -138,6 +138,12 @@ class CV_AssetItem(bpy.types.PropertyGroup):
     match_score: FloatProperty(name="Match", default=0.0)
 
 
+class CV_LogItem(bpy.types.PropertyGroup):
+    timestamp: StringProperty(name="Time")
+    level: StringProperty(name="Level")
+    message: StringProperty(name="Message", maxlen=500)
+
+
 class CV_SceneSettings(bpy.types.PropertyGroup):
     onboarding_complete: BoolProperty(name="Onboarding Complete", default=False)
     workflow_step: EnumProperty(
@@ -150,6 +156,17 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         default="DESCRIBE",
     )
     scene_plan_json: StringProperty(name="Scene Plan", default="", options={"HIDDEN"})
+    revision_preview_json: StringProperty(name="Revision Preview", default="", options={"HIDDEN"})
+    revision_fingerprint: StringProperty(name="Revision Fingerprint", default="", options={"HIDDEN"})
+    revision_source_world: StringProperty(name="Revision Source", default="")
+    revision_changed: IntProperty(name="Changed", default=0, min=0)
+    revision_created: IntProperty(name="Created", default=0, min=0)
+    revision_deleted: IntProperty(name="Deleted", default=0, min=0)
+    revision_skipped: IntProperty(name="Preserved", default=0, min=0)
+    revision_protected: IntProperty(name="Protected", default=0, min=0)
+    revision_manual_edits: IntProperty(name="Manual Edits", default=0, min=0)
+    checkpoint_path: StringProperty(name="Latest Checkpoint", default="", subtype="FILE_PATH")
+    activity_log: CollectionProperty(type=CV_LogItem)
     plan_title: StringProperty(name="World Name", default="Miniature World", maxlen=128)
     plan_world_type: EnumProperty(
         name="Composition",
@@ -367,7 +384,7 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     generation_status: StringProperty(name="Generation Status", default="Not prepared")
 
 
-_CLASSES = (CV_AddonPreferences, CV_SessionSecrets, CV_AssetItem, CV_SceneSettings)
+_CLASSES = (CV_AddonPreferences, CV_SessionSecrets, CV_AssetItem, CV_LogItem, CV_SceneSettings)
 
 
 def register() -> None:

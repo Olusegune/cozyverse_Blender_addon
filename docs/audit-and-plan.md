@@ -85,4 +85,6 @@ Completed in 0.12.0. The active-world contract now covers Sun rotation/energy/co
 - Verify undo/checkpoint behavior, cancellation, redacted logs, recovery, and packaged beta failure paths.
 - Complete the golden path with actual Blender evidence and no high-severity data-loss or security defect.
 
+Completed in 0.13.0 with a deliberately narrow reconciliation contract: revisions never mutate or delete a source world. The preview fingerprints the exact target plan, counts all preserved source objects, and separately reports protected objects and transform edits. Apply creates a lineage-linked new world; Cancel creates nothing. Blender Undo was exercised in a foreground 3D View, and explicit timestamped checkpoints cover longer recovery windows. The activity log is bounded and redacted before persistence.
+
 Later milestones M6-M8 remain blocked on separate approval, provider/license verification, and mini-PRDs where required.
