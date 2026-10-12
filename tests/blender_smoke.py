@@ -47,8 +47,20 @@ try:
     settings.prompt_text.write("\nInclude a welcoming storefront and evening atmosphere.")
     assert bpy.ops.cozyverse.use_multiline_prompt() == {"FINISHED"}
     assert "\n" in settings.prompt
-    result = bpy.ops.cozyverse.create_local_demo()
+    assert bpy.ops.cozyverse.prepare_scene_plan() == {"FINISHED"}
+    assert settings.workflow_step == "REVIEW"
+    assert settings.scene_plan_json
+    assert bpy.ops.cozyverse.build_approved_plan() == {"CANCELLED"}
+    settings.plan_approved = True
+    result = bpy.ops.cozyverse.build_approved_plan()
     assert result == {"FINISHED"}, result
+    assert settings.workflow_step == "BUILT"
+    assert settings.active_world_name == "CV_WORLD"
+    assert bpy.ops.cozyverse.select_world(world_name="CV_WORLD") == {"FINISHED"}
+    assert bpy.ops.cozyverse.archive_world(world_name="CV_WORLD", hidden=True) == {"FINISHED"}
+    assert bpy.data.collections["CV_WORLD"].hide_viewport is True
+    assert bpy.ops.cozyverse.archive_world(world_name="CV_WORLD", hidden=False) == {"FINISHED"}
+    assert bpy.data.collections["CV_WORLD"].hide_viewport is False
 
     world = bpy.data.collections.get("CV_WORLD")
     assert world is not None
@@ -101,6 +113,11 @@ try:
     store = bpy.data.objects["CV_SariSari_Store"]
     store.location.x += 0.75
     edited_x = store.location.x
+    assert bpy.ops.cozyverse.inspect_manual_edits() == {"FINISHED"}
+    assert "Manual-edit check:" in settings.status and "changed" in settings.status
+    store.select_set(True)
+    assert bpy.ops.cozyverse.lock_selected_objects() == {"FINISHED"}
+    assert store.get("cv_locked") is True
     assert bpy.ops.cozyverse.create_local_demo() == {"FINISHED"}
     assert bpy.data.collections.get("CV_WORLD_002") is not None
     assert bpy.data.objects.get("CV_SariSari_Store") is store

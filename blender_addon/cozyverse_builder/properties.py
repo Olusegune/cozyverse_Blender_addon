@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, PointerProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
 
 from .core.demo_spec import DEFAULT_PROMPT
 from .core.style_spec import style_items
@@ -126,6 +126,52 @@ class CV_SessionSecrets(bpy.types.PropertyGroup):
 
 
 class CV_SceneSettings(bpy.types.PropertyGroup):
+    onboarding_complete: BoolProperty(name="Onboarding Complete", default=False)
+    workflow_step: EnumProperty(
+        name="Creation Step",
+        items=(
+            ("DESCRIBE", "1 Describe", "Describe the desired miniature world"),
+            ("REVIEW", "2 Review", "Review and edit the structured scene plan"),
+            ("BUILT", "3 Built", "Inspect and manage the generated world"),
+        ),
+        default="DESCRIBE",
+    )
+    scene_plan_json: StringProperty(name="Scene Plan", default="", options={"HIDDEN"})
+    plan_title: StringProperty(name="World Name", default="Miniature World", maxlen=128)
+    plan_world_type: EnumProperty(
+        name="Composition",
+        items=(
+            ("VILLAGE", "Village", "Small settlement composition"),
+            ("CITY", "Urban Street", "Street or neighborhood composition"),
+            ("CAFE", "Cafe", "Cafe exterior or intimate setting"),
+            ("NATURE", "Landscape", "Natural landscape composition"),
+            ("SPACE_OUTPOST", "Space Outpost", "Retro or futuristic outpost"),
+            ("MARKET", "Market", "Market and stalls"),
+            ("FARM", "Farm", "Rural farm composition"),
+            ("FANTASY", "Fantasy", "Fantasy settlement composition"),
+        ),
+        default="VILLAGE",
+    )
+    plan_base_shape: EnumProperty(
+        name="Diorama Base",
+        items=(("ROUNDED_RECT", "Rounded Rectangle", "Classic miniature base"), ("CIRCLE", "Circle", "Circular display base"), ("ISLAND", "Organic Island", "Natural irregular presentation")),
+        default="ROUNDED_RECT",
+    )
+    plan_camera_type: EnumProperty(
+        name="Camera",
+        items=(("ORTHO", "Isometric / Orthographic", "Miniature presentation"), ("PERSPECTIVE", "Perspective", "Cinematic perspective")),
+        default="ORTHO",
+    )
+    plan_architecture_count: IntProperty(name="Buildings", default=3, min=0, max=20)
+    plan_prop_count: IntProperty(name="Props", default=6, min=0, max=30)
+    plan_vegetation_count: IntProperty(name="Plants", default=6, min=0, max=30)
+    plan_character_count: IntProperty(name="Characters", default=2, min=0, max=20)
+    plan_include_road: BoolProperty(name="Road or Main Path", default=True)
+    plan_approved: BoolProperty(name="I reviewed this plan", default=False)
+    operation_progress: FloatProperty(name="Progress", default=0.0, min=0.0, max=1.0, subtype="FACTOR")
+    last_error: StringProperty(name="Last Error", default="", maxlen=1024)
+    recovery_hint: StringProperty(name="Recovery", default="", maxlen=1024)
+    active_world_name: StringProperty(name="Active World", default="")
     reference_image_path: StringProperty(
         name="Reference Image",
         description="Local diorama image used for an editable offline interpretation",

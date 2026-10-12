@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0
+
+- Replaced one-click creation with a guided Describe → Review Plan → Build workflow.
+- Added a validated renderer-independent scene-plan schema and editable review controls.
+- Added first-run guided example and local/no-cost onboarding messages.
+- Added progress, actionable error, and recovery guidance surfaces.
+- Added Select & Frame, reversible hide/show, and world-version management.
+- Added generated-transform snapshots, manual-edit inspection, and explicit object protection.
+- Made plan composition, counts, base shape, roads, vegetation, and camera affect local builds.
+- Added unit and Blender integration tests for plan validation, approval gates, persistence, and edit protection.
+
 ## 0.8.0
 
 - Added Style Studio with twelve validated visual-style presets.

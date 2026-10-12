@@ -53,49 +53,113 @@ def _draw_header(layout: bpy.types.UILayout, settings) -> None:
 
 
 def _draw_create(layout: bpy.types.UILayout, settings) -> None:
-    prompt = layout.box()
-    prompt.label(text="DESCRIBE YOUR WORLD", icon="TEXT")
-    preview = prompt.box()
-    preview.label(text="CURRENT PROMPT", icon="PREVIEW_RANGE")
-    prompt_value = settings.prompt_text.as_string() if settings.prompt_text else settings.prompt
-    for line in _wrapped_lines(prompt_value, width=40, limit=4):
-        preview.label(text=line)
-    composer = prompt.column(align=True)
-    composer.scale_y = 1.35
-    composer.operator("cozyverse.prompt_composer", text="COMPOSE DETAILED PROMPT", icon="GREASEPENCIL")
-    utilities = prompt.row(align=True)
-    utilities.operator("cozyverse.paste_prompt", text="Paste", icon="PASTEDOWN")
-    utilities.operator("cozyverse.reset_prompt", text="Reset", icon="LOOP_BACK")
-    templates = prompt.box()
-    templates.label(text="QUICK START", icon="BOOKMARKS")
-    row = templates.row(align=True)
-    for name, label, icon in (("VILLAGE", "Village", "HOME"), ("CITY", "City", "OUTLINER_OB_MESH"), ("CAFE", "Cafe", "LIGHT")):
-        operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
-        operator.template = name
-    row = templates.row(align=True)
-    for name, label, icon in (("NATURE", "Nature", "WORLD"), ("FANTASY", "Fantasy", "SOLO_ON"), ("HISTORICAL", "History", "TIME")):
-        operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
-        operator.template = name
-    retro = templates.row(align=True)
-    retro.scale_y = 1.2
-    operator = retro.operator("cozyverse.apply_prompt_template", text="Retro Sci-Fi", icon="ORIENTATION_GIMBAL")
-    operator.template = "RETRO_SCIFI"
-    style = prompt.box()
-    style.label(text="STYLE STUDIO", icon="BRUSH_DATA")
-    style.prop(settings, "preset", text="")
-    selected_style = STYLE_PRESETS.get(settings.preset)
-    if selected_style:
-        style.label(text=selected_style.description)
-        style.label(text="Asset tags: " + ", ".join(selected_style.keywords), icon="TAG")
-    action = layout.column(align=True)
-    action.scale_y = 1.55
-    action.operator("cozyverse.create_local_demo", text="BUILD EDITABLE WORLD", icon="MOD_BUILD")
-    safety = layout.box()
-    safety.label(text="LOCAL BUILD • NATIVE OBJECTS • NO COST", icon="LOCKED")
-    advanced = layout.box()
-    advanced.label(text="ADVANCED", icon="PREFERENCES")
-    advanced.label(text="Use Blender's Text Editor for very long prompts.")
-    advanced.operator("cozyverse.edit_multiline_prompt", text="Open Full Text Editor", icon="TEXT")
+    steps = layout.row(align=True)
+    steps.enabled = False
+    steps.prop(settings, "workflow_step", expand=True)
+
+    if not settings.onboarding_complete:
+        welcome = layout.box()
+        welcome.label(text="WELCOME TO COZYVERSE", icon="FUND")
+        welcome.label(text="Build your first editable miniature in three steps.")
+        welcome.label(text="Nothing is uploaded and no credits are used.", icon="LOCKED")
+        start = welcome.column(align=True)
+        start.scale_y = 1.35
+        start.operator("cozyverse.start_onboarding", text="START GUIDED EXAMPLE", icon="PLAY")
+        start.operator("cozyverse.dismiss_onboarding", text="Use My Own Description", icon="FORWARD")
+
+    if settings.workflow_step == "DESCRIBE":
+        prompt = layout.box()
+        prompt.label(text="STEP 1 — DESCRIBE", icon="TEXT")
+        preview = prompt.box()
+        preview.label(text="CURRENT PROMPT", icon="PREVIEW_RANGE")
+        prompt_value = settings.prompt_text.as_string() if settings.prompt_text else settings.prompt
+        for line in _wrapped_lines(prompt_value, width=40, limit=4):
+            preview.label(text=line)
+        composer = prompt.column(align=True)
+        composer.scale_y = 1.25
+        composer.operator("cozyverse.prompt_composer", text="COMPOSE DETAILED PROMPT", icon="GREASEPENCIL")
+        utilities = prompt.row(align=True)
+        utilities.operator("cozyverse.paste_prompt", text="Paste", icon="PASTEDOWN")
+        utilities.operator("cozyverse.reset_prompt", text="Reset", icon="LOOP_BACK")
+        templates = prompt.box()
+        templates.label(text="QUICK START", icon="BOOKMARKS")
+        row = templates.row(align=True)
+        for name, label, icon in (("VILLAGE", "Village", "HOME"), ("CITY", "City", "OUTLINER_OB_MESH"), ("CAFE", "Cafe", "LIGHT")):
+            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
+            operator.template = name
+        row = templates.row(align=True)
+        for name, label, icon in (("NATURE", "Nature", "WORLD"), ("FANTASY", "Fantasy", "SOLO_ON"), ("RETRO_SCIFI", "Retro Sci-Fi", "ORIENTATION_GIMBAL")):
+            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
+            operator.template = name
+        style = prompt.box()
+        style.label(text="STYLE STUDIO", icon="BRUSH_DATA")
+        style.prop(settings, "preset", text="")
+        selected_style = STYLE_PRESETS.get(settings.preset)
+        if selected_style:
+            style.label(text=selected_style.description)
+        action = layout.column(align=True)
+        action.scale_y = 1.5
+        action.operator("cozyverse.prepare_scene_plan", text="REVIEW WORLD PLAN", icon="DOCUMENTS")
+        advanced = layout.box()
+        advanced.label(text="Long prompt?", icon="PREFERENCES")
+        advanced.operator("cozyverse.edit_multiline_prompt", text="Open Advanced Text Editor", icon="TEXT")
+
+    elif settings.workflow_step == "REVIEW":
+        plan = layout.box()
+        plan.label(text="STEP 2 — REVIEW PLAN", icon="DOCUMENTS")
+        plan.label(text="Edit the proposal before anything is built.")
+        plan.prop(settings, "plan_title")
+        plan.prop(settings, "plan_world_type")
+        plan.prop(settings, "plan_base_shape")
+        plan.prop(settings, "plan_camera_type")
+        contents = plan.box()
+        contents.label(text="SCENE CONTENT", icon="OUTLINER_COLLECTION")
+        grid = contents.grid_flow(row_major=True, columns=2, align=True)
+        grid.prop(settings, "plan_architecture_count")
+        grid.prop(settings, "plan_prop_count")
+        grid.prop(settings, "plan_vegetation_count")
+        grid.prop(settings, "plan_character_count")
+        contents.prop(settings, "plan_include_road")
+        style = plan.box()
+        style.label(text="VISUAL DIRECTION", icon="BRUSH_DATA")
+        style.prop(settings, "preset", text="")
+        plan.prop(settings, "plan_approved", icon="CHECKMARK")
+        actions = layout.row(align=True)
+        actions.operator("cozyverse.back_to_description", text="Back", icon="BACK")
+        build = actions.row(align=True)
+        build.enabled = settings.plan_approved
+        build.scale_y = 1.45
+        build.operator("cozyverse.build_approved_plan", text="BUILD NEW VERSION", icon="MOD_BUILD")
+        safety = layout.box()
+        safety.label(text="Existing worlds and manual edits will not be overwritten.", icon="LOCKED")
+        safety.label(text="LOCAL BUILD • NATIVE OBJECTS • NO COST")
+
+    else:
+        result = layout.box()
+        result.label(text="STEP 3 — WORLD READY", icon="CHECKMARK")
+        result.label(text=settings.active_world_name or "Generated world")
+        primary = result.column(align=True)
+        primary.scale_y = 1.35
+        primary.operator("cozyverse.select_world", text="SELECT & FRAME WORLD", icon="VIEWZOOM")
+        row = result.row(align=True)
+        row.operator("cozyverse.lock_selected_objects", text="Protect Selected", icon="LOCKED")
+        row.operator("cozyverse.inspect_manual_edits", text="Check Edits", icon="UV_SYNC_SELECT")
+        next_version = layout.column(align=True)
+        next_version.operator("cozyverse.back_to_description", text="CREATE ANOTHER VERSION", icon="DUPLICATE")
+
+    if settings.operation_progress > 0:
+        progress = layout.box()
+        progress.label(text="PROGRESS", icon="SORTTIME")
+        progress.prop(settings, "operation_progress", text="")
+    if settings.last_error:
+        error = layout.box()
+        error.alert = True
+        error.label(text=settings.last_error, icon="ERROR")
+    if settings.recovery_hint:
+        recovery = layout.box()
+        recovery.label(text="NEXT STEP", icon="INFO")
+        for line in _wrapped_lines(settings.recovery_hint, width=42, limit=3):
+            recovery.label(text=line)
 
 
 def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
@@ -162,6 +226,19 @@ def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
         history = layout.box()
         history.label(text="LATEST BUILD", icon="TIME")
         history.label(text=settings.last_demo_prompt[:72])
+    versions = layout.box()
+    versions.label(text="WORLD VERSIONS", icon="OUTLINER_COLLECTION")
+    worlds = [collection for collection in bpy.data.collections if collection.get("cv_managed") and collection.name.startswith("CV_WORLD")]
+    if not worlds:
+        versions.label(text="No generated worlds yet")
+    for world in sorted(worlds, key=lambda item: item.name, reverse=True)[:8]:
+        row = versions.row(align=True)
+        select = row.operator("cozyverse.select_world", text=world.name, icon="RADIOBUT_ON" if settings.active_world_name == world.name else "RADIOBUT_OFF")
+        select.world_name = world.name
+        visibility = row.operator("cozyverse.archive_world", text="", icon="HIDE_ON" if not world.hide_viewport else "HIDE_OFF")
+        visibility.world_name = world.name
+        visibility.hidden = not world.hide_viewport
+    versions.label(text="Hide is reversible; versions are never deleted here.", icon="INFO")
 
 
 def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
@@ -244,7 +321,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.8.0 Style Studio")
+    about.label(text="CozyVerse 0.9.0 Usability Recovery")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):

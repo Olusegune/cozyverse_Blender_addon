@@ -5,7 +5,8 @@
 1. Install the CozyVerse ZIP through **Edit > Preferences > Get Extensions > Install from Disk**.
 2. In the 3D View, press `N` and select the **CozyVerse** tab.
 3. Expand **Create World**, choose a template or select **Compose Detailed Prompt**, and choose a style.
-4. Select **Build Editable World**.
+4. Select **Review World Plan**, edit the proposed contents, and confirm **I reviewed this plan**.
+5. Select **Build New Version**.
 5. Open `CV_WORLD` in the Outliner and edit its meshes, lights, materials, and camera normally.
 
 The current foundation build is deterministic and offline. It creates a demonstration from Blender primitives so you can evaluate the interaction without an account, API key, or paid service.
@@ -14,7 +15,13 @@ The current foundation build is deterministic and offline. It creates a demonstr
 
 ### Create World
 
-Choose one of six quick-start templates, paste a prompt from the clipboard, or select **Compose Detailed Prompt**. The composer is a bounded dialog with Setting, Subject, Mood, Details, and Avoid fields plus clear **Apply Prompt** and **Cancel** actions; it does not replace the Blender workspace. Select a style and build the local demonstration. Each new build creates a numbered `CV_WORLD` collection so earlier generated worlds and manual edits remain intact.
+Creation follows three visible steps: **Describe**, **Review**, and **Built**. Choose a quick-start template, paste a prompt, or select **Compose Detailed Prompt**. The composer is a bounded dialog with Setting, Subject, Mood, Details, Avoid, and Style fields plus clear **Apply Prompt** and **Cancel** actions.
+
+Select **Review World Plan** before building. CozyVerse proposes an editable composition, base shape, camera type, number of buildings, props, plants and characters, and whether the scene needs a road or main path. This step creates no Blender objects. Review the proposal, enable **I reviewed this plan**, and select **Build New Version**.
+
+Every build creates a new numbered `CV_WORLD` collection. Existing versions and manual edits are never overwritten. The scene plan is saved as structured JSON on the collection; it is data, not executable Python.
+
+After building, use **Select & Frame World** to locate the result. **Protect Selected** marks selected generated objects as explicitly locked. **Check Edits** reports objects whose transforms have changed since construction.
 
 For unusually long free-form prompts, **Open Full Text Editor** creates a `CV_World_Prompt` Text datablock and switches the current area to Blender's Text Editor. Select **Use Prompt and Return**, or press **Shift+F5** to return to the 3D View. This is deliberately labeled as an advanced path.
 
@@ -41,6 +48,12 @@ The resulting world collection records the local reference path and reconstructi
 ### Activity
 
 Review the last operation, offline-engine state, and latest build prompt. A success message means Blender completed the operator; suggestions or text alone never imply that the scene changed.
+
+The **World Versions** list shows up to eight recent CozyVerse worlds. Select a version to make it active and frame it in the 3D View. The eye button hides or shows a version without deleting it. CozyVerse does not offer destructive deletion from this panel.
+
+### Recovery messages
+
+The Create panel displays operation progress, the exact failure when an action cannot continue, and a recommended next step. A rejected build usually means the plan was not approved or contains invalid values. Return to the plan, correct the highlighted values, and build again; earlier worlds remain untouched.
 
 ### Connections & Settings
 

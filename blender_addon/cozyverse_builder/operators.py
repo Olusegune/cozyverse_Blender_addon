@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import bpy
 import json
-from bpy.props import EnumProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy_extras.io_utils import ImportHelper
 
 from .atmosphere import apply_atmosphere
@@ -14,6 +14,7 @@ from .world_builder import build_offline_world
 from .providers.contracts import build_plan
 from .core.reference_spec import dominant_palette, scan_asset_files, validate_reference_path
 from .core.style_spec import STYLE_PRESETS, style_items, styled_prompt
+from .core.scene_plan import ScenePlan, parse_plan, proposed_plan
 
 
 def _prompt_from_settings(settings) -> str:
@@ -39,6 +40,221 @@ def _compose_prompt(setting: str, subject: str, mood: str, details: str, avoid: 
     return ". ".join(parts).rstrip(".") + "." if parts else ""
 
 
+def _plan_from_settings(settings) -> ScenePlan:
+    plan = ScenePlan(
+        "1.0",
+        settings.plan_title.strip(),
+        settings.plan_world_type,
+        settings.preset,
+        settings.plan_base_shape,
+        settings.plan_architecture_count,
+        settings.plan_prop_count,
+        settings.plan_vegetation_count,
+        settings.plan_character_count,
+        settings.plan_include_road,
+        settings.plan_camera_type,
+        _prompt_from_settings(settings),
+    )
+    plan.validate()
+    return plan
+
+
+def _world_objects(collection):
+    objects = list(collection.objects)
+    for child in collection.children:
+        objects.extend(_world_objects(child))
+    return objects
+
+
+class CV_OT_StartOnboarding(bpy.types.Operator):
+    bl_idname = "cozyverse.start_onboarding"
+    bl_label = "Start Guided Example"
+    bl_description = "Load a safe sample prompt and prepare its scene plan"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        settings.onboarding_complete = True
+        bpy.ops.cozyverse.apply_prompt_template(template="VILLAGE")
+        return bpy.ops.cozyverse.prepare_scene_plan()
+
+
+class CV_OT_DismissOnboarding(bpy.types.Operator):
+    bl_idname = "cozyverse.dismiss_onboarding"
+    bl_label = "Skip Introduction"
+
+    def execute(self, context: bpy.types.Context):
+        context.scene.cozyverse.onboarding_complete = True
+        return {"FINISHED"}
+
+
+class CV_OT_PrepareScenePlan(bpy.types.Operator):
+    bl_idname = "cozyverse.prepare_scene_plan"
+    bl_label = "Review World Plan"
+    bl_description = "Create an editable validated plan without modifying the Blender scene"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        prompt = _prompt_from_settings(settings)
+        if not prompt:
+            settings.last_error = "World description is empty"
+            settings.recovery_hint = "Open Prompt Composer or choose a Quick Start template."
+            settings.status = settings.last_error
+            return {"CANCELLED"}
+        plan = proposed_plan(prompt, settings.preset)
+        settings.plan_title = plan.title
+        settings.plan_world_type = plan.world_type
+        settings.plan_base_shape = plan.base_shape
+        settings.plan_camera_type = plan.camera_type
+        settings.plan_architecture_count = plan.architecture_count
+        settings.plan_prop_count = plan.prop_count
+        settings.plan_vegetation_count = plan.vegetation_count
+        settings.plan_character_count = plan.character_count
+        settings.plan_include_road = plan.include_road
+        settings.scene_plan_json = plan.canonical_json()
+        settings.plan_approved = False
+        settings.workflow_step = "REVIEW"
+        settings.operation_progress = 0.35
+        settings.last_error = ""
+        settings.recovery_hint = "Review every section, approve the plan, then build a new version."
+        settings.status = "Plan ready for review; no objects were created"
+        return {"FINISHED"}
+
+
+class CV_OT_BackToDescription(bpy.types.Operator):
+    bl_idname = "cozyverse.back_to_description"
+    bl_label = "Back to Description"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        settings.workflow_step = "DESCRIBE"
+        settings.plan_approved = False
+        settings.operation_progress = 0.0
+        settings.status = "Update the description, then review a new plan"
+        return {"FINISHED"}
+
+
+class CV_OT_BuildApprovedPlan(bpy.types.Operator):
+    bl_idname = "cozyverse.build_approved_plan"
+    bl_label = "Build Approved Plan"
+    bl_description = "Build a new version from the reviewed plan without overwriting previous worlds"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        if not settings.plan_approved:
+            settings.last_error = "The scene plan has not been approved"
+            settings.recovery_hint = "Review the plan and enable ‘I reviewed this plan’."
+            settings.status = settings.last_error
+            return {"CANCELLED"}
+        try:
+            plan = _plan_from_settings(settings)
+            settings.scene_plan_json = plan.canonical_json()
+            settings.operation_progress = 0.55
+            settings.status = "Building a new editable world version..."
+            world = build_offline_world(context.scene, settings, plan.prompt, json.loads(settings.scene_plan_json))
+            settings.operation_progress = 1.0
+            settings.workflow_step = "BUILT"
+            settings.active_world_name = world.name
+            settings.last_demo_prompt = plan.prompt
+            settings.last_error = ""
+            settings.recovery_hint = "Use Select & Frame to inspect it. Previous versions remain untouched."
+            settings.status = f"World ready: {world.name}"
+            self.report({"INFO"}, settings.status)
+            return {"FINISHED"}
+        except (ValueError, RuntimeError) as exc:
+            settings.last_error = f"Build stopped: {exc}"
+            settings.recovery_hint = "Return to the plan, correct invalid values, and try again."
+            settings.operation_progress = 0.35
+            settings.status = settings.last_error
+            self.report({"ERROR"}, settings.last_error)
+            return {"CANCELLED"}
+
+
+class CV_OT_SelectWorld(bpy.types.Operator):
+    bl_idname = "cozyverse.select_world"
+    bl_label = "Select & Frame World"
+    bl_description = "Select all objects in a CozyVerse world and frame them when run from a 3D View"
+
+    world_name: StringProperty(name="World")
+
+    def execute(self, context: bpy.types.Context):
+        world = bpy.data.collections.get(self.world_name or context.scene.cozyverse.active_world_name)
+        if world is None or not world.get("cv_managed"):
+            context.scene.cozyverse.status = "World is missing; choose another saved version"
+            return {"CANCELLED"}
+        bpy.ops.object.select_all(action="DESELECT")
+        objects = _world_objects(world)
+        for obj in objects:
+            obj.hide_set(False)
+            obj.select_set(True)
+        if objects:
+            context.view_layer.objects.active = objects[0]
+        context.scene.cozyverse.active_world_name = world.name
+        context.scene["cv_active_world"] = world.name
+        if context.area is not None and context.area.type == "VIEW_3D" and objects:
+            bpy.ops.view3d.view_selected(use_all_regions=False)
+        context.scene.cozyverse.status = f"Selected {world.name}: {len(objects)} objects"
+        return {"FINISHED"}
+
+
+class CV_OT_ArchiveWorld(bpy.types.Operator):
+    bl_idname = "cozyverse.archive_world"
+    bl_label = "Hide World Version"
+    bl_description = "Hide this world version without deleting it"
+    bl_options = {"REGISTER", "UNDO"}
+
+    world_name: StringProperty(name="World")
+    hidden: BoolProperty(name="Hidden", default=True)
+
+    def execute(self, context: bpy.types.Context):
+        world = bpy.data.collections.get(self.world_name or context.scene.cozyverse.active_world_name)
+        if world is None or not world.get("cv_managed"):
+            return {"CANCELLED"}
+        world.hide_viewport = self.hidden
+        world.hide_render = self.hidden
+        context.scene.cozyverse.status = f"{world.name} {'hidden' if self.hidden else 'visible'}; no data was deleted"
+        return {"FINISHED"}
+
+
+class CV_OT_InspectManualEdits(bpy.types.Operator):
+    bl_idname = "cozyverse.inspect_manual_edits"
+    bl_label = "Check Manual Edits"
+    bl_description = "Report generated objects whose transforms differ from their build snapshot"
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        world = bpy.data.collections.get(settings.active_world_name)
+        if world is None:
+            settings.status = "No active CozyVerse world to inspect"
+            return {"CANCELLED"}
+        edited = 0
+        locked = 0
+        for obj in _world_objects(world):
+            locked += bool(obj.get("cv_locked"))
+            baseline = obj.get("cv_generated_transform")
+            current = json.dumps([round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)])
+            edited += bool(baseline and baseline != current)
+        settings.status = f"Manual-edit check: {edited} changed, {locked} locked; rebuilds create new versions"
+        settings.recovery_hint = "Edited and locked objects remain untouched because CozyVerse never overwrites an existing world."
+        return {"FINISHED"}
+
+
+class CV_OT_LockSelectedObjects(bpy.types.Operator):
+    bl_idname = "cozyverse.lock_selected_objects"
+    bl_label = "Protect Selected"
+    bl_description = "Mark selected objects as explicitly protected CozyVerse content"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        selected = [obj for obj in context.selected_objects if obj.get("cv_managed")]
+        if not selected:
+            return {"CANCELLED"}
+        for obj in selected:
+            obj["cv_locked"] = True
+        context.scene.cozyverse.status = f"Protected {len(selected)} selected object(s)"
+        return {"FINISHED"}
+
+
 class CV_OT_CreateLocalDemo(bpy.types.Operator):
     bl_idname = "cozyverse.create_local_demo"
     bl_label = "Build World"
@@ -56,6 +272,9 @@ class CV_OT_CreateLocalDemo(bpy.types.Operator):
             settings.status = "Building editable offline world..."
             world = build_offline_world(context.scene, settings, prompt)
             settings.last_demo_prompt = prompt
+            settings.active_world_name = world.name
+            settings.workflow_step = "BUILT"
+            settings.operation_progress = 1.0
             settings.status = f"World ready: {world.name}"
             self.report({"INFO"}, settings.status)
             return {"FINISHED"}
@@ -144,6 +363,8 @@ class CV_OT_PromptComposer(bpy.types.Operator):
         settings.preset = self.style
         settings.prompt = styled_prompt(prompt, self.style)[:4000]
         settings.prompt_text = None
+        settings.workflow_step = "DESCRIBE"
+        settings.plan_approved = False
         settings.status = "Prompt composed and ready to build"
         return {"FINISHED"}
 
@@ -187,6 +408,8 @@ class CV_OT_ApplyPromptTemplate(bpy.types.Operator):
             settings.preset = style_map[self.template]
         settings.prompt = styled_prompt(_compose_prompt(setting, subject, mood, details, avoid), settings.preset)
         settings.prompt_text = None
+        settings.workflow_step = "DESCRIBE"
+        settings.plan_approved = False
         settings.status = f"{self.template.title()} prompt template applied"
         return {"FINISHED"}
 
@@ -203,6 +426,8 @@ class CV_OT_PastePrompt(bpy.types.Operator):
             return {"CANCELLED"}
         context.scene.cozyverse.prompt = value[:4000]
         context.scene.cozyverse.prompt_text = None
+        context.scene.cozyverse.workflow_step = "DESCRIBE"
+        context.scene.cozyverse.plan_approved = False
         context.scene.cozyverse.status = "Clipboard prompt ready"
         return {"FINISHED"}
 
@@ -304,6 +529,9 @@ class CV_OT_RecreateReferenceMock(bpy.types.Operator):
         root["cv_reference_mode"] = "local_palette_interpretation"
         root["cv_indexed_asset_count"] = int(settings.indexed_asset_count or 0)
         settings.reference_status = f"Editable interpretation ready: {root.name}"
+        settings.active_world_name = root.name
+        settings.workflow_step = "BUILT"
+        settings.operation_progress = 1.0
         return {"FINISHED"}
 
 
@@ -342,6 +570,8 @@ class CV_OT_ResetPrompt(bpy.types.Operator):
             settings.prompt_text.clear()
             settings.prompt_text.write(DEFAULT_PROMPT)
         settings.status = "Prompt reset"
+        settings.workflow_step = "DESCRIBE"
+        settings.plan_approved = False
         return {"FINISHED"}
 
 
@@ -553,6 +783,15 @@ class CV_OT_ValidateProviderSettings(bpy.types.Operator):
 
 
 _CLASSES = (
+    CV_OT_StartOnboarding,
+    CV_OT_DismissOnboarding,
+    CV_OT_PrepareScenePlan,
+    CV_OT_BackToDescription,
+    CV_OT_BuildApprovedPlan,
+    CV_OT_SelectWorld,
+    CV_OT_ArchiveWorld,
+    CV_OT_InspectManualEdits,
+    CV_OT_LockSelectedObjects,
     CV_OT_CreateLocalDemo,
     CV_OT_PromptComposer,
     CV_OT_ApplyPromptTemplate,

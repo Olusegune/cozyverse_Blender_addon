@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+import json
 
 import bpy
 from mathutils import Vector
@@ -132,16 +133,22 @@ def _point_camera(camera: bpy.types.Object, target=(0.0, 0.0, 0.8)) -> None:
 def _tag_world_members(collection: bpy.types.Collection, world_name: str) -> None:
     for obj in collection.objects:
         obj["cv_world_root"] = world_name
+        obj["cv_generated_transform"] = json.dumps(
+            [round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)]
+        )
     for child in collection.children:
         _tag_world_members(child, world_name)
 
 
-def build_offline_world(scene: bpy.types.Scene, settings, prompt: str) -> bpy.types.Collection:
+def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dict | None = None) -> bpy.types.Collection:
     """Create a new editable world without altering earlier worlds or user objects."""
     root = _new_collection(_next_world_name(), scene.collection)
     root["cv_schema_version"] = "2.0"
     root["cv_prompt"] = prompt
     root["cv_preset"] = settings.preset
+    plan = plan or {}
+    root["cv_scene_plan"] = json.dumps(plan, sort_keys=True) if plan else ""
+    root["cv_version_state"] = "editable"
     style = STYLE_PRESETS.get(settings.preset, STYLE_PRESETS["COZY_VILLAGE"])
     root["cv_style_label"] = style.label
     root["cv_asset_keywords"] = ", ".join(style.keywords)
@@ -166,9 +173,17 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str) -> bpy.ty
     glass = _material("CV_Mat_Window", (0.08, 0.28, 0.42, 1.0), 0.25)
     rain_material = _material("CV_Mat_Rain", (0.08, 0.48, 1.0, 1.0), 0.1)
 
-    _cube("CV_Diorama_Base", (0.0, 0.0, -0.4), (5.7, 4.2, 0.4), base_collection, earth, 0.18)
-    _cube("CV_Road", (0.0, -1.45, 0.06), (5.15, 1.05, 0.08), base_collection, road, 0.04)
-    _cube("CV_Sidewalk", (0.0, -0.15, 0.13), (5.15, 0.22, 0.14), base_collection, trim, 0.035)
+    base_shape = plan.get("base_shape", "ROUNDED_RECT")
+    if base_shape == "CIRCLE":
+        _cylinder("CV_Diorama_Base", (0.0, 0.0, -0.4), 5.2, 0.8, base_collection, earth)
+    else:
+        base = _cube("CV_Diorama_Base", (0.0, 0.0, -0.4), (5.7, 4.2, 0.4), base_collection, earth, 0.18)
+        if base_shape == "ISLAND":
+            base.scale.y = 0.82
+            base.rotation_euler.z = math.radians(4)
+    if plan.get("include_road", True):
+        _cube("CV_Road", (0.0, -1.45, 0.06), (5.15, 1.05, 0.08), base_collection, road, 0.04)
+        _cube("CV_Sidewalk", (0.0, -0.15, 0.13), (5.15, 0.22, 0.14), base_collection, trim, 0.035)
 
     _cube("CV_SariSari_Store", (-0.8, 1.2, 1.25), (2.0, 1.35, 1.25), architecture, plaster, 0.12)
     bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=2.35, radius2=0.0, depth=1.25, location=(-0.8, 1.2, 3.05))
@@ -184,7 +199,19 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str) -> bpy.ty
     _cube("CV_Crate_B", (-2.75, 0.95, 0.34), (0.34, 0.34, 0.34), props, trim, 0.05)
     _cube("CV_Bench", (2.4, 0.25, 0.5), (1.0, 0.32, 0.16), props, wood, 0.05)
 
-    for index, location in enumerate(((-4.0, 2.3, 0.0), (3.9, 2.25, 0.0), (3.65, -2.7, 0.0), (-3.8, -2.8, 0.0))):
+    architecture_count = max(1, min(int(plan.get("architecture_count", 1)), 8))
+    for index in range(1, architecture_count):
+        x = -4.0 + (index - 1) * 2.4
+        _cube(f"CV_Secondary_Building_{index}", (x, 2.6, 0.75), (0.8, 0.65, 0.75), architecture, plaster, 0.09)
+    prop_count = max(3, min(int(plan.get("prop_count", 3)), 16))
+    for index in range(3, prop_count):
+        x = -4.5 + (index % 6) * 1.55
+        y = -2.8 + (index % 2) * 0.55
+        _cube(f"CV_Set_Dressing_{index + 1}", (x, y, 0.3), (0.22, 0.22, 0.3), props, trim if index % 2 else wood, 0.035)
+
+    plant_locations = ((-4.0, 2.3, 0.0), (3.9, 2.25, 0.0), (3.65, -2.7, 0.0), (-3.8, -2.8, 0.0), (2.1, 2.8, 0.0), (-2.2, 2.9, 0.0), (4.4, 0.3, 0.0), (-4.5, 0.2, 0.0))
+    vegetation_count = max(0, min(int(plan.get("vegetation_count", 4)), len(plant_locations)))
+    for index, location in enumerate(plant_locations[:vegetation_count]):
         _plant(f"CV_Tropical_Plant_{index + 1}", location, 0.72 + index * 0.08, vegetation, wood, green)
 
     sun_data = bpy.data.lights.new(SUN_NAME, "SUN")
@@ -201,7 +228,7 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str) -> bpy.ty
         _mark(light, f"CV_Interior_{suffix}")
 
     camera_data = bpy.data.cameras.new("CV_Camera")
-    camera_data.type = "ORTHO"
+    camera_data.type = "PERSP" if plan.get("camera_type") == "PERSPECTIVE" else "ORTHO"
     camera_data.ortho_scale = 13.5
     camera = bpy.data.objects.new("CV_Camera", camera_data)
     camera.location = (10.8, -13.2, 10.2)
@@ -211,7 +238,7 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str) -> bpy.ty
     scene.camera = camera
 
     _create_rain(rain_collection, rain_material)
-    _tag_world_members(root, root.name)
     scene["cv_active_world"] = root.name
     apply_atmosphere(scene, settings)
+    _tag_world_members(root, root.name)
     return root
