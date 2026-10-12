@@ -87,4 +87,14 @@ Completed in 0.12.0. The active-world contract now covers Sun rotation/energy/co
 
 Completed in 0.13.0 with a deliberately narrow reconciliation contract: revisions never mutate or delete a source world. The preview fingerprints the exact target plan, counts all preserved source objects, and separately reports protected objects and transform edits. Apply creates a lineage-linked new world; Cancel creates nothing. Blender Undo was exercised in a foreground 3D View, and explicit timestamped checkpoints cover longer recovery windows. The activity log is bounded and redacted before persistence.
 
-Later milestones M6-M8 remain blocked on separate approval, provider/license verification, and mini-PRDs where required.
+M6 was approved and implemented in 0.14.0 after reviewing current official Tripo and Meshy contracts. The automated suite uses injected transports and zero-cost mocks; no paid task was submitted. M7-M8 remain blocked on separate approval and mini-PRDs where required.
+
+### M6 Optional AI generation and Asset Factory
+
+- Preview and fingerprint an exact provider request with a documented estimated-credit ceiling.
+- Require explicit request consent and a final dialog before asynchronous submission.
+- Poll and cancel where the verified provider contract permits without blocking Blender or calling `bpy` from a worker.
+- Validate, quarantine, inspect, record provenance, and separately approve promotion of generated GLB assets.
+- Pass full mock and failure-path tests with zero unapproved provider calls and no scene mutation on provider failure.
+
+Completed in 0.14.0. Live adapters are implemented, but automated acceptance used mock transports and the local mock lifecycle only; paid calls were deliberately not executed.

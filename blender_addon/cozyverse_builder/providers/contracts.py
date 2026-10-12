@@ -15,8 +15,11 @@ class GenerationPlan:
     model: str
     submit_url: str
     status_url_template: str
+    cancel_url_template: str
     payload: dict
     cost_note: str
+    estimated_credits: int
+    cancellation_note: str
 
     def canonical_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
@@ -37,19 +40,22 @@ def build_plan(provider: str, prompt: str) -> GenerationPlan:
             provider="TRIPO",
             prompt=clean_prompt,
             model="v3.1-20260211",
-            submit_url="https://openapi.tripo3d.ai/v3/generation/text-to-model",
-            status_url_template="https://openapi.tripo3d.ai/v3/tasks/{task_id}",
+            submit_url="https://api.tripo3d.ai/v2/openapi/task",
+            status_url_template="https://api.tripo3d.ai/v2/openapi/task/{task_id}",
+            cancel_url_template="",
             payload={
+                "type": "text_to_model",
                 "prompt": clean_prompt,
-                "model": "v3.1-20260211",
+                "model_version": "v3.1-20260211",
                 "texture": True,
                 "pbr": True,
                 "texture_quality": "standard",
-                "smart_low_poly": True,
                 "face_limit": 20000,
                 "auto_size": True,
             },
-            cost_note="Tripo freezes provider credits when the task is created; exact credits depend on provider pricing.",
+            cost_note="Estimated 20 Tripo API credits for v3.1 Text-to-3D with standard texture; provider pricing can change.",
+            estimated_credits=20,
+            cancellation_note="The verified Tripo v2 schema does not publish a cancellation endpoint; submission may not be cancellable.",
         )
     if normalized == "MESHY":
         return GenerationPlan(
@@ -58,6 +64,7 @@ def build_plan(provider: str, prompt: str) -> GenerationPlan:
             model="latest",
             submit_url="https://api.meshy.ai/openapi/v2/text-to-3d",
             status_url_template="https://api.meshy.ai/openapi/v2/text-to-3d/{task_id}",
+            cancel_url_template="https://api.meshy.ai/openapi/v2/text-to-3d/{task_id}",
             payload={
                 "mode": "preview",
                 "prompt": clean_prompt,
@@ -66,13 +73,17 @@ def build_plan(provider: str, prompt: str) -> GenerationPlan:
                 "target_polycount": 20000,
                 "target_formats": ["glb"],
             },
-            cost_note="Meshy charges provider credits when the preview task is created; exact credits are reported by the task.",
+            cost_note="Estimated 20 Meshy API credits for a latest standard preview mesh; provider pricing can change.",
+            estimated_credits=20,
+            cancellation_note="Meshy can delete and refund a PENDING task; an IN_PROGRESS task cannot be deleted or refunded.",
         )
     raise ValueError(f"Unsupported generation provider: {provider}")
 
 
 def parse_submit_response(provider: str, response: dict) -> str:
     if provider == "TRIPO":
+        if response.get("code") not in {None, 0}:
+            raise ValueError(str(response.get("message") or "Tripo rejected the request"))
         task_id = response.get("data", {}).get("task_id")
     elif provider == "MESHY":
         task_id = response.get("result")
@@ -108,7 +119,7 @@ def parse_status_response(provider: str, response: dict) -> dict:
 def validate_download_url(provider: str, url: str) -> str:
     parsed = urlparse(url)
     allowed = {
-        "TRIPO": {"cdn.tripo3d.ai"},
+        "TRIPO": {"cdn.tripo3d.ai", "tripo-data.cdn.bcebos.com"},
         "MESHY": {"assets.meshy.ai", "cdn.meshy.ai"},
     }.get(provider, set())
     if parsed.scheme != "https" or parsed.hostname not in allowed:
@@ -117,3 +128,11 @@ def validate_download_url(provider: str, url: str) -> str:
         raise ValueError("Only GLB or GLTF model downloads are supported")
     return url
 
+
+def validate_budget(plan: GenerationPlan, credit_limit: int, approved_fingerprint: str) -> None:
+    if approved_fingerprint != plan.fingerprint():
+        raise ValueError("The approved request no longer matches the preview")
+    if credit_limit < plan.estimated_credits:
+        raise ValueError(f"Credit limit must be at least {plan.estimated_credits}")
+    if credit_limit > 1000:
+        raise ValueError("Credit limit exceeds the CozyVerse safety maximum")

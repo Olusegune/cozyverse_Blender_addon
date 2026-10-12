@@ -104,7 +104,13 @@ Imported content is placed under `CV_IMPORTED_ASSETS` and wrapped in a transform
 
 ### 3D Asset Factory
 
-The Generate workspace prepares an official-contract request for the selected provider. It shows the pinned model, provider cost warning, and a fingerprint for the exact payload. Approval resets whenever the request is previewed. **Run Safe Mock Job** creates an editable placeholder with the plan fingerprint and never contacts a provider or spends credits. Live submission remains disabled until asynchronous polling, cancellation, validated download, and import review are complete.
+The Generate workspace prepares an official-contract request for Tripo or Meshy. It shows the pinned model, current estimated credits, provider warning, and SHA-256 fingerprint for the exact payload. Previewing a request resets all earlier approvals.
+
+Use **Start Safe Mock Job** first. Refresh it twice to exercise Pending, In Progress and Succeeded states without network access or credits. Download the mock result, approve quarantine import, inspect the reported object/vertex/material counts, then separately approve promotion to `CV_ASSET_FACTORY`.
+
+For a live job, enter the provider key in Settings, set a maximum-credit ceiling at or above the displayed estimate, approve the exact paid request, and select **Review & Submit Paid Job**. A final dialog repeats the fingerprint, estimate and ceiling. Submission and status polling run asynchronously so Blender remains responsive. Tripo's verified contract does not expose cancellation; Meshy can delete and refund a PENDING task but rejects cancellation after it enters IN_PROGRESS.
+
+Successful results are accepted only from approved HTTPS provider hosts, must identify GLB/GLTF output, and are limited to 100 MB. Downloaded GLBs are validated before persistence. Import requires approval and enters `CV_ASSET_QUARANTINE`; CozyVerse removes animation drivers and records provider, job, fingerprint and cost-estimate provenance. Promotion into the reusable `CV_ASSET_FACTORY` requires a second approval. Provider failure, rejection or cancellation does not modify the scene.
 
 ## API key safety
 
@@ -124,8 +130,8 @@ Use **Clear Key** before screen sharing or handing the running Blender session t
 
 ## Current limitations
 
-- No AI provider request is implemented.
-- No paid generation service is implemented.
-- Provider fields do not test remote credentials.
+- Live provider contracts were verified on 2026-10-12 but paid submissions were not executed during automated testing.
+- Credit estimates are snapshots of provider documentation and are not guaranteed charges.
+- Provider fields are checked locally; CozyVerse does not spend credits merely to validate a key.
 - Multiline prompts use a Blender Text datablock rather than an embedded sidebar text area.
 - Local asset matching uses filename and folder metadata; it does not generate thumbnails yet.

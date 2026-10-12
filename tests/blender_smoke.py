@@ -126,11 +126,28 @@ try:
     settings.generation_prompt = generation_plan.prompt
     settings.generation_plan_json = generation_plan.canonical_json()
     settings.generation_fingerprint = generation_plan.fingerprint()
+    settings.generation_estimated_credits = generation_plan.estimated_credits
     settings.generation_approved = True
     assert bpy.ops.cozyverse.run_mock_generation() == {"FINISHED"}
-    mock_asset = bpy.data.objects.get("CV_Mock_Generated_Asset")
-    assert mock_asset is not None and mock_asset.get("cv_provider_mock") is True
     assert settings.generation_approved is False
+    assert settings.generation_job_status == "PENDING"
+    assert bpy.data.collections.get("CV_ASSET_QUARANTINE") is None
+    assert bpy.ops.cozyverse.refresh_generation_job() == {"FINISHED"}
+    assert settings.generation_job_status == "IN_PROGRESS"
+    assert bpy.ops.cozyverse.refresh_generation_job() == {"FINISHED"}
+    assert settings.generation_job_status == "SUCCEEDED"
+    assert bpy.ops.cozyverse.download_generation_result() == {"FINISHED"}
+    assert bpy.ops.cozyverse.import_generation_result() == {"CANCELLED"}
+    settings.generation_import_approved = True
+    assert bpy.ops.cozyverse.import_generation_result() == {"FINISHED"}
+    mock_asset = bpy.data.objects.get(settings.generation_quarantine_name)
+    assert mock_asset is not None and mock_asset.get("cv_provenance") == "provider_mock"
+    assert bpy.data.collections.get("CV_ASSET_QUARANTINE") is not None
+    assert bpy.ops.cozyverse.promote_generation_asset() == {"CANCELLED"}
+    settings.generation_promotion_approved = True
+    assert bpy.ops.cozyverse.promote_generation_asset() == {"FINISHED"}
+    assert mock_asset.get("cv_asset_factory") is True
+    assert bpy.data.collections.get("CV_ASSET_FACTORY") is not None
 
     store = bpy.data.objects["CV_Hero_Command_Module"]
     store.location.x += 0.75

@@ -354,15 +354,51 @@ def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, setti
         review.label(text=line)
     if settings.generation_fingerprint:
         review.label(text=f"Plan: {settings.generation_fingerprint[:12]}", icon="CHECKMARK")
-    review.prop(settings, "generation_approved")
-    mock = review.column()
-    mock.enabled = bool(settings.generation_plan_json and settings.generation_approved)
-    mock.scale_y = 1.3
-    mock.operator("cozyverse.run_mock_generation", text="RUN SAFE MOCK JOB", icon="PLAY")
+        review.label(text=f"Estimated provider charge: {settings.generation_estimated_credits} credits")
+    mock_box = layout.box()
+    mock_box.label(text="ZERO-COST WORKFLOW TEST", icon="GHOST_ENABLED")
+    mock_box.prop(settings, "generation_approved")
+    mock = mock_box.column()
+    mock.enabled = bool(settings.generation_plan_json and settings.generation_approved and settings.generation_job_status == "NONE")
+    mock.scale_y = 1.25
+    mock.operator("cozyverse.run_mock_generation", text="START SAFE MOCK JOB", icon="PLAY")
+    paid = layout.box()
+    paid.alert = settings.generation_live_approved
+    paid.label(text="PAID PROVIDER SUBMISSION", icon="ERROR")
+    paid.prop(settings, "generation_credit_limit")
+    paid.prop(settings, "generation_live_approved")
+    submit = paid.column()
+    submit.enabled = bool(settings.generation_plan_json and settings.generation_live_approved and settings.generation_job_status == "NONE")
+    submit.scale_y = 1.3
+    submit.operator("cozyverse.submit_live_generation", text="REVIEW & SUBMIT PAID JOB", icon="URL")
+    paid.label(text="Final confirmation dialog required • estimates may change")
+    job = layout.box()
+    job.label(text="JOB STATUS", icon="SORTTIME")
+    job.label(text=f"{settings.generation_job_status.replace('_', ' ').title()} • {settings.generation_job_progress}%")
+    if settings.generation_job_id:
+        job.label(text=f"ID: {settings.generation_job_id[:32]}")
+    row = job.row(align=True)
+    row.operator("cozyverse.refresh_generation_job", text="Refresh", icon="FILE_REFRESH")
+    row.operator("cozyverse.cancel_generation_job", text="Cancel", icon="X")
+    download = job.column()
+    download.enabled = settings.generation_job_status == "SUCCEEDED"
+    download.operator("cozyverse.download_generation_result", text="DOWNLOAD VALIDATED GLB", icon="IMPORT")
+    quarantine = layout.box()
+    quarantine.label(text="QUARANTINE REVIEW", icon="LOCKED")
+    quarantine.prop(settings, "generation_import_approved")
+    importer = quarantine.column()
+    importer.enabled = bool(settings.generation_download_path and settings.generation_import_approved)
+    importer.operator("cozyverse.import_generation_result", text="IMPORT TO QUARANTINE", icon="IMPORT")
+    quarantine.label(text=settings.generation_review_summary)
+    quarantine.prop(settings, "generation_promotion_approved")
+    promote = quarantine.column()
+    promote.enabled = bool(settings.generation_quarantine_name and settings.generation_promotion_approved)
+    promote.scale_y = 1.25
+    promote.operator("cozyverse.promote_generation_asset", text="PROMOTE TO ASSET FACTORY", icon="ASSET_MANAGER")
     boundary = layout.box()
-    boundary.label(text="LIVE PROVIDER BOUNDARY", icon="LOCKED")
-    boundary.label(text="No Tripo or Meshy request is sent in this build")
-    boundary.label(text="Live submission requires separate approval")
+    boundary.label(text="SAFETY BOUNDARY", icon="LOCKED")
+    boundary.label(text="Network work is asynchronous; bpy stays on the main thread")
+    boundary.label(text="Only allowlisted HTTPS GLB results up to 100 MB")
 
 
 def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> None:
@@ -398,9 +434,8 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
         clear.provider = provider_id
     generation.operator("cozyverse.validate_generation_settings", text="Check Setup Locally", icon="CHECKMARK")
     note = generation.column(align=True)
-    note.enabled = False
-    note.label(text="Live generation requests are not enabled", icon="LOCKED")
-    note.label(text="Future jobs require cost and consent review")
+    note.label(text="Live jobs require fingerprint, budget and final confirmation", icon="LOCKED")
+    note.label(text="Keys stay session-only and never enter .blend files")
     assets = layout.box()
     assets.label(text="YOUR ASSET SOURCES", icon="ASSET_MANAGER")
     assets.prop(preferences, "include_blender_asset_libraries")
@@ -416,7 +451,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.13.0 Safe Revisions Beta")
+    about.label(text="CozyVerse 0.14.0 Asset Factory")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):

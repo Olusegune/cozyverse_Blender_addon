@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import bpy
 import json
+import queue
+import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
@@ -13,12 +16,78 @@ from .atmosphere import apply_atmosphere
 from .core.atmosphere_spec import AtmosphereValues, PRESETS, deserialize_preset, serialize_preset
 from .core.demo_spec import DEFAULT_PROMPT
 from .world_builder import build_offline_world
-from .providers.contracts import build_plan
+from .providers.contracts import GenerationPlan, build_plan, validate_budget, validate_download_url
+from .providers import runtime as provider_runtime
 from .core.reference_spec import dominant_palette, scan_asset_files, validate_reference_path
 from .core.style_spec import STYLE_PRESETS, style_items, styled_prompt
 from .core.scene_plan import ScenePlan, parse_plan, proposed_plan
 from .core.asset_catalog import AssetRecord, match_assets, record_from_path
 from .core.revision_spec import make_revision_preview, plan_fingerprint, redact_log_message
+
+
+_PROVIDER_RESULTS: queue.SimpleQueue = queue.SimpleQueue()
+
+
+def _generation_plan(settings) -> GenerationPlan:
+    try:
+        return GenerationPlan(**json.loads(settings.generation_plan_json))
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Preview a valid provider request first") from exc
+
+
+def _drain_provider_results():
+    while True:
+        try:
+            scene_name, action, ok, value = _PROVIDER_RESULTS.get_nowait()
+        except queue.Empty:
+            break
+        scene = bpy.data.scenes.get(scene_name)
+        if scene is None or not hasattr(scene, "cozyverse"):
+            continue
+        settings = scene.cozyverse
+        if not ok:
+            settings.generation_status = str(value)[:500]
+            if action == "SUBMIT":
+                settings.generation_job_status = "FAILED"
+            continue
+        if action == "SUBMIT":
+            settings.generation_job_id = value
+            settings.generation_job_status = "PENDING"
+            settings.generation_job_progress = 0
+            settings.generation_status = f"Provider accepted job {value[:18]}…"
+        elif action == "POLL":
+            status = value.get("status", "UNKNOWN")
+            settings.generation_job_status = status if status in {"PENDING", "IN_PROGRESS", "SUCCEEDED", "FAILED", "CANCELED"} else "FAILED"
+            settings.generation_job_progress = max(0, min(100, int(value.get("progress") or 0)))
+            url = value.get("download_url") or ""
+            if url:
+                try:
+                    settings.generation_result_url = validate_download_url(_generation_plan(settings).provider, url)
+                except ValueError as exc:
+                    settings.generation_job_status = "FAILED"
+                    settings.generation_status = f"Unsafe provider result rejected: {exc}"
+                    continue
+            settings.generation_status = f"Job {settings.generation_job_status.replace('_', ' ').title()} — {settings.generation_job_progress}%"
+        elif action == "CANCEL":
+            settings.generation_job_status = "CANCELED"
+            settings.generation_status = "Provider job canceled before import; the scene was unchanged"
+        elif action == "DOWNLOAD":
+            settings.generation_download_path = str(value)
+            settings.generation_status = "Validated GLB downloaded; review and approve quarantine import"
+    return 0.25 if any(thread.name.startswith("CozyVerseProvider") and thread.is_alive() for thread in threading.enumerate()) else None
+
+
+def _start_provider_work(scene_name: str, action: str, function, *args) -> None:
+    def worker():
+        try:
+            result = function(*args)
+            _PROVIDER_RESULTS.put((scene_name, action, True, result))
+        except Exception as exc:
+            _PROVIDER_RESULTS.put((scene_name, action, False, str(exc)))
+
+    threading.Thread(target=worker, name=f"CozyVerseProvider-{action}", daemon=True).start()
+    if not bpy.app.timers.is_registered(_drain_provider_results):
+        bpy.app.timers.register(_drain_provider_results, first_interval=0.1)
 
 
 def _prompt_from_settings(settings) -> str:
@@ -1130,7 +1199,16 @@ class CV_OT_PreviewGeneration(bpy.types.Operator):
         settings.generation_plan_json = plan.canonical_json()
         settings.generation_fingerprint = plan.fingerprint()
         settings.generation_cost_note = plan.cost_note
+        settings.generation_estimated_credits = plan.estimated_credits
         settings.generation_approved = False
+        settings.generation_live_approved = False
+        settings.generation_job_id = ""
+        settings.generation_job_status = "NONE"
+        settings.generation_job_progress = 0
+        settings.generation_result_url = ""
+        settings.generation_download_path = ""
+        settings.generation_import_approved = False
+        settings.generation_promotion_approved = False
         settings.generation_status = f"Ready for review: {plan.provider} {plan.model}"
         self.report({"INFO"}, "Generation request previewed; nothing was sent")
         return {"FINISHED"}
@@ -1147,21 +1225,255 @@ class CV_OT_RunMockGeneration(bpy.types.Operator):
         if not settings.generation_plan_json or not settings.generation_approved:
             settings.generation_status = "Preview the request and approve the exact mock job first"
             return {"CANCELLED"}
-        collection = bpy.data.collections.get("CV_GENERATED_PREVIEWS")
-        if collection is None:
-            collection = bpy.data.collections.new("CV_GENERATED_PREVIEWS")
-            context.scene.collection.children.link(collection)
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=0.8)
-        obj = context.object
-        for owner in list(obj.users_collection):
-            owner.objects.unlink(obj)
-        collection.objects.link(obj)
-        obj.name = "CV_Mock_Generated_Asset"
-        obj["cv_provider_mock"] = True
-        obj["cv_plan_fingerprint"] = settings.generation_fingerprint
-        obj["cv_prompt"] = settings.generation_prompt
+        plan = _generation_plan(settings)
+        entry = context.preferences.addons.get(__package__)
+        preferences = entry.preferences if entry else None
+        current_provider = preferences.generation_provider if preferences else plan.provider
+        current_plan = build_plan(current_provider, settings.generation_prompt)
+        if plan.fingerprint() != settings.generation_fingerprint or current_plan.fingerprint() != settings.generation_fingerprint:
+            settings.generation_status = "Request changed after preview; preview it again"
+            return {"CANCELLED"}
+        settings.generation_job_id = f"mock-{settings.generation_fingerprint[:16]}"
+        settings.generation_job_status = "PENDING"
+        settings.generation_job_progress = 0
+        settings.generation_is_mock = True
         settings.generation_approved = False
-        settings.generation_status = "Mock job completed; no provider request or charge occurred"
+        settings.generation_status = "Mock job queued; no provider request or charge occurred"
+        _log_activity(context, "MOCK", f"Queued zero-cost {plan.provider} mock job")
+        return {"FINISHED"}
+
+
+class CV_OT_SubmitLiveGeneration(bpy.types.Operator):
+    bl_idname = "cozyverse.submit_live_generation"
+    bl_label = "Submit Paid Provider Job"
+    bl_description = "Submit the exact approved request asynchronously; provider credits may be charged"
+
+    def invoke(self, context, _event):
+        return context.window_manager.invoke_props_dialog(self, width=560, confirm_text="SUBMIT APPROVED PAID JOB")
+
+    def draw(self, context):
+        settings = context.scene.cozyverse
+        layout = self.layout
+        layout.alert = True
+        layout.label(text="This sends data to the selected external provider.", icon="ERROR")
+        layout.label(text=f"Fingerprint: {settings.generation_fingerprint[:16]}")
+        layout.label(text=f"Estimated: {settings.generation_estimated_credits} credits • Maximum approved: {settings.generation_credit_limit}")
+        layout.label(text="Estimates are not guaranteed provider charges.")
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        entry = context.preferences.addons.get(__package__)
+        preferences = entry.preferences if entry else None
+        if preferences is None or preferences.generation_provider == "NONE":
+            settings.generation_status = "Select Tripo or Meshy first"
+            return {"CANCELLED"}
+        try:
+            plan = _generation_plan(settings)
+            current_plan = build_plan(preferences.generation_provider, settings.generation_prompt)
+            if current_plan.fingerprint() != settings.generation_fingerprint:
+                raise ValueError("Provider or prompt changed after preview; preview the request again")
+            validate_budget(plan, settings.generation_credit_limit, settings.generation_fingerprint)
+        except ValueError as exc:
+            settings.generation_status = str(exc)
+            return {"CANCELLED"}
+        if not settings.generation_live_approved:
+            settings.generation_status = "Approve this exact paid request before submission"
+            return {"CANCELLED"}
+        secrets = context.window_manager.cozyverse_secrets
+        api_key = secrets.tripo_api_key if plan.provider == "TRIPO" else secrets.meshy_api_key
+        if not api_key.strip():
+            settings.generation_status = f"Enter a {plan.provider.title()} session key"
+            return {"CANCELLED"}
+        settings.generation_live_approved = False
+        settings.generation_job_status = "PENDING"
+        settings.generation_job_progress = 0
+        settings.generation_is_mock = False
+        settings.generation_status = "Submitting approved provider request asynchronously…"
+        _start_provider_work(context.scene.name, "SUBMIT", provider_runtime.submit, plan, api_key)
+        _log_activity(context, "SUBMIT", f"Submitted approved {plan.provider} request {plan.fingerprint()[:12]}")
+        return {"FINISHED"}
+
+
+class CV_OT_RefreshGenerationJob(bpy.types.Operator):
+    bl_idname = "cozyverse.refresh_generation_job"
+    bl_label = "Refresh Job Status"
+    bl_description = "Poll the mock or provider job without blocking Blender"
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        if not settings.generation_job_id or settings.generation_job_status in {"NONE", "FAILED", "CANCELED"}:
+            settings.generation_status = "Start a job before refreshing status"
+            return {"CANCELLED"}
+        if settings.generation_is_mock:
+            if settings.generation_job_status == "PENDING":
+                settings.generation_job_status = "IN_PROGRESS"
+                settings.generation_job_progress = 50
+            elif settings.generation_job_status == "IN_PROGRESS":
+                settings.generation_job_status = "SUCCEEDED"
+                settings.generation_job_progress = 100
+                settings.generation_download_path = "MOCK"
+            settings.generation_status = f"Mock job {settings.generation_job_status.replace('_', ' ').title()} — {settings.generation_job_progress}%"
+            return {"FINISHED"}
+        plan = _generation_plan(settings)
+        secrets = context.window_manager.cozyverse_secrets
+        api_key = secrets.tripo_api_key if plan.provider == "TRIPO" else secrets.meshy_api_key
+        if not api_key:
+            settings.generation_status = "Reload the provider session key before polling"
+            return {"CANCELLED"}
+        settings.generation_status = "Refreshing provider status asynchronously…"
+        _start_provider_work(context.scene.name, "POLL", provider_runtime.poll, plan, settings.generation_job_id, api_key)
+        return {"FINISHED"}
+
+
+class CV_OT_CancelGenerationJob(bpy.types.Operator):
+    bl_idname = "cozyverse.cancel_generation_job"
+    bl_label = "Cancel Pending Job"
+    bl_description = "Cancel a mock job or request provider cancellation where officially supported"
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        if settings.generation_job_status not in {"PENDING", "IN_PROGRESS"}:
+            settings.generation_status = "Only pending or active jobs can be canceled"
+            return {"CANCELLED"}
+        if settings.generation_is_mock:
+            settings.generation_job_status = "CANCELED"
+            settings.generation_status = "Mock job canceled; the scene was unchanged"
+            return {"FINISHED"}
+        plan = _generation_plan(settings)
+        if not plan.cancel_url_template:
+            settings.generation_status = plan.cancellation_note
+            return {"CANCELLED"}
+        secrets = context.window_manager.cozyverse_secrets
+        api_key = secrets.tripo_api_key if plan.provider == "TRIPO" else secrets.meshy_api_key
+        settings.generation_status = "Requesting provider cancellation asynchronously…"
+        _start_provider_work(context.scene.name, "CANCEL", provider_runtime.cancel, plan, settings.generation_job_id, api_key)
+        return {"FINISHED"}
+
+
+class CV_OT_DownloadGenerationResult(bpy.types.Operator):
+    bl_idname = "cozyverse.download_generation_result"
+    bl_label = "Download Validated Result"
+    bl_description = "Download an allowlisted GLB with a 100 MB limit without blocking Blender"
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        if settings.generation_job_status != "SUCCEEDED":
+            settings.generation_status = "Wait for a successful job before download"
+            return {"CANCELLED"}
+        if settings.generation_is_mock:
+            settings.generation_download_path = "MOCK"
+            settings.generation_status = "Mock result ready for quarantine import"
+            return {"FINISHED"}
+        try:
+            plan = _generation_plan(settings)
+            validate_download_url(plan.provider, settings.generation_result_url)
+        except ValueError as exc:
+            settings.generation_status = f"Unsafe result rejected: {exc}"
+            return {"CANCELLED"}
+        root = Path(bpy.data.filepath).parent if bpy.data.filepath else Path(bpy.app.tempdir)
+        safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", settings.generation_job_id)[:80]
+        destination = root / "cozyverse_generated" / f"{plan.provider.lower()}-{safe_id}.glb"
+        settings.generation_status = "Downloading and validating GLB asynchronously…"
+        _start_provider_work(context.scene.name, "DOWNLOAD", provider_runtime.download, plan.provider, settings.generation_result_url, destination)
+        return {"FINISHED"}
+
+
+def _generation_collection(scene, name: str):
+    collection = bpy.data.collections.get(name)
+    if collection is None:
+        collection = bpy.data.collections.new(name)
+        scene.collection.children.link(collection)
+    collection["cv_managed"] = True
+    return collection
+
+
+class CV_OT_ImportGenerationResult(bpy.types.Operator):
+    bl_idname = "cozyverse.import_generation_result"
+    bl_label = "Import to Quarantine"
+    bl_description = "Import the approved result into an isolated editable review collection"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        if settings.generation_job_status != "SUCCEEDED" or not settings.generation_download_path or not settings.generation_import_approved:
+            settings.generation_status = "Download and approve the result before quarantine import"
+            return {"CANCELLED"}
+        target = _generation_collection(context.scene, "CV_ASSET_QUARANTINE")
+        if settings.generation_is_mock:
+            bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=0.8)
+            mock_object = context.object
+            imported = [mock_object]
+            for owner in list(mock_object.users_collection):
+                owner.objects.unlink(mock_object)
+            target.objects.link(mock_object)
+        else:
+            path = Path(settings.generation_download_path)
+            if not path.is_file() or path.suffix.lower() != ".glb":
+                settings.generation_status = "Validated GLB is missing; download it again"
+                return {"CANCELLED"}
+            try:
+                imported = _import_external_asset(str(path), ".glb", target)
+            except (RuntimeError, ValueError) as exc:
+                settings.generation_status = f"Quarantine import failed: {exc}"
+                return {"CANCELLED"}
+        wrapper = bpy.data.objects.new(f"CV_QUARANTINE_{settings.generation_job_id[:28]}", None)
+        target.objects.link(wrapper)
+        vertices = materials = 0
+        for obj in imported:
+            if obj.parent is None:
+                obj.parent = wrapper
+            obj["cv_managed"] = True
+            obj["cv_provider_job"] = settings.generation_job_id
+            obj["cv_quarantine"] = True
+            if isinstance(obj.data, bpy.types.Mesh):
+                vertices += len(obj.data.vertices)
+                materials += len(obj.data.materials)
+            if obj.animation_data and obj.animation_data.drivers:
+                obj.animation_data_clear()
+        plan = _generation_plan(settings)
+        for key, value in {
+            "cv_managed": True,
+            "cv_quarantine": True,
+            "cv_provider": plan.provider,
+            "cv_provider_job": settings.generation_job_id,
+            "cv_plan_fingerprint": settings.generation_fingerprint,
+            "cv_estimated_credits": settings.generation_estimated_credits,
+            "cv_provenance": "provider_mock" if settings.generation_is_mock else "user_approved_provider_generation",
+        }.items():
+            wrapper[key] = value
+        settings.generation_quarantine_name = wrapper.name
+        settings.generation_review_summary = f"{len(imported)} object(s) • {vertices} vertices • {materials} material slots • drivers removed"
+        settings.generation_import_approved = False
+        settings.generation_promotion_approved = False
+        settings.generation_status = "Result imported to quarantine; inspect before promotion"
+        return {"FINISHED"}
+
+
+class CV_OT_PromoteGenerationAsset(bpy.types.Operator):
+    bl_idname = "cozyverse.promote_generation_asset"
+    bl_label = "Promote to Asset Factory"
+    bl_description = "Move the reviewed generated asset into the reusable local Asset Factory collection"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        settings = context.scene.cozyverse
+        wrapper = bpy.data.objects.get(settings.generation_quarantine_name)
+        if wrapper is None or not wrapper.get("cv_quarantine") or not settings.generation_promotion_approved:
+            settings.generation_status = "Inspect and approve the quarantine asset before promotion"
+            return {"CANCELLED"}
+        quarantine = bpy.data.collections.get("CV_ASSET_QUARANTINE")
+        factory = _generation_collection(context.scene, "CV_ASSET_FACTORY")
+        members = [obj for obj in bpy.data.objects if obj is wrapper or obj.get("cv_provider_job") == settings.generation_job_id]
+        for obj in members:
+            if quarantine in obj.users_collection:
+                quarantine.objects.unlink(obj)
+            if obj.name not in factory.objects:
+                factory.objects.link(obj)
+            obj["cv_quarantine"] = False
+            obj["cv_asset_factory"] = True
+        wrapper["cv_provenance"] = "approved_asset_factory_item"
+        settings.generation_promotion_approved = False
+        settings.generation_status = f"Promoted {wrapper.name} to the editable Asset Factory"
         return {"FINISHED"}
 
 
@@ -1230,6 +1542,12 @@ _CLASSES = (
     CV_OT_ValidateGenerationSettings,
     CV_OT_PreviewGeneration,
     CV_OT_RunMockGeneration,
+    CV_OT_SubmitLiveGeneration,
+    CV_OT_RefreshGenerationJob,
+    CV_OT_CancelGenerationJob,
+    CV_OT_DownloadGenerationResult,
+    CV_OT_ImportGenerationResult,
+    CV_OT_PromoteGenerationAsset,
     CV_OT_ValidateProviderSettings,
 )
 
@@ -1240,5 +1558,7 @@ def register() -> None:
 
 
 def unregister() -> None:
+    if bpy.app.timers.is_registered(_drain_provider_results):
+        bpy.app.timers.unregister(_drain_provider_results)
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)

@@ -1,6 +1,6 @@
 # CozyVerse Builder
 
-CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.13.0 completes the safe-revisions beta milestone with fingerprinted previews, non-destructive lineage, checkpoints, cancellation, and redacted activity history.
+CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.14.0 adds the optional Tripo/Meshy generation pipeline and reusable Asset Factory behind exact-request, budget, quarantine, and promotion approvals.
 
 The foundation build provides:
 
@@ -16,7 +16,9 @@ The foundation build provides:
 - scene-persistent prompt, preset, status, and last-run settings;
 - a full-area multiline prompt editor with wrapped sidebar preview;
 - masked session-only Director, Tripo, and Meshy credential inputs for future provider adapters;
-- reviewable, fingerprinted Tripo/Meshy request plans and a zero-cost mock generation workflow;
+- current, reviewable Tripo/Meshy request plans, asynchronous provider jobs, and a complete zero-cost mock workflow;
+- explicit estimated-credit ceilings and final confirmation before any paid submission;
+- allowlisted, size-limited GLB downloads, quarantine inspection, provenance and approved Asset Factory promotion;
 - a deterministic sari-sari-store diorama made from editable Blender-native objects;
 - six functional atmosphere looks with time, sunlight, warmth, ambient light, exposure, practical-light intensity and 1,800–6,500 K color controls;
 - per-world atmosphere persistence, saved-look loading, and automatic migration of version 1 presets;
@@ -24,6 +26,6 @@ The foundation build provides:
 - plan fingerprints that invalidate approval after any reviewed setting changes;
 - timestamped `.blend` recovery checkpoints and a bounded redacted activity log;
 - clean registration and unregistration;
-- no network access, provider code, dynamic code execution, or paid requests.
+- no dynamic code execution and no paid request without request-specific user consent.
 
 See [INSTALL.md](INSTALL.md) for installation, [USER_GUIDE.md](USER_GUIDE.md) for everyday use, and [SECURITY.md](SECURITY.md) for credential handling. See [docs/audit-and-plan.md](docs/audit-and-plan.md) for the documentation audit, implementation state, roadmap, and milestone acceptance criteria.

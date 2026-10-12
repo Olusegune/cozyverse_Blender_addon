@@ -69,11 +69,11 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
     )
     generation_provider: EnumProperty(
         name="3D Generation Provider",
-        description="Provider to configure for a future explicitly approved generation adapter",
+        description="Provider used only after an exact request, credit limit, and paid-job consent are approved",
         items=(
             ("NONE", "Disabled", "Disable external 3D generation"),
-            ("TRIPO", "Tripo", "Configure Tripo credentials without sending a request"),
-            ("MESHY", "Meshy", "Configure Meshy credentials without sending a request"),
+            ("TRIPO", "Tripo", "Tripo v2 API adapter"),
+            ("MESHY", "Meshy", "Meshy Text-to-3D v2 adapter"),
         ),
         default="NONE",
     )
@@ -99,7 +99,7 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "include_blender_asset_libraries")
         layout.prop(self, "custom_asset_folder")
         layout.label(text="API keys are entered only in the CozyVerse sidebar session.", icon="LOCKED")
-        layout.label(text="Foundation build: no network or paid provider requests.", icon="INFO")
+        layout.label(text="Paid jobs require an exact preview, budget and final confirmation.", icon="INFO")
 
 
 class CV_SessionSecrets(bpy.types.PropertyGroup):
@@ -382,6 +382,33 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         default=False,
     )
     generation_status: StringProperty(name="Generation Status", default="Not prepared")
+    generation_estimated_credits: IntProperty(name="Estimated Credits", default=0, min=0)
+    generation_credit_limit: IntProperty(
+        name="Maximum Credits",
+        description="Hard approval ceiling for this exact provider request",
+        default=20,
+        min=0,
+        max=1000,
+    )
+    generation_live_approved: BoolProperty(
+        name="I approve this exact paid request",
+        description="Consent applies only to the displayed fingerprint and credit ceiling",
+        default=False,
+    )
+    generation_job_id: StringProperty(name="Provider Job ID", default="")
+    generation_job_status: EnumProperty(
+        name="Job Status",
+        items=(("NONE", "Not Started", "No job"), ("PENDING", "Pending", "Waiting"), ("IN_PROGRESS", "In Progress", "Running"), ("SUCCEEDED", "Succeeded", "Ready"), ("FAILED", "Failed", "Failed"), ("CANCELED", "Canceled", "Canceled")),
+        default="NONE",
+    )
+    generation_job_progress: IntProperty(name="Progress", default=0, min=0, max=100, subtype="PERCENTAGE")
+    generation_is_mock: BoolProperty(name="Mock Job", default=True)
+    generation_result_url: StringProperty(name="Validated Result URL", default="", options={"HIDDEN"})
+    generation_download_path: StringProperty(name="Downloaded Model", default="", subtype="FILE_PATH")
+    generation_quarantine_name: StringProperty(name="Quarantine Asset", default="")
+    generation_review_summary: StringProperty(name="Inspection", default="Not imported")
+    generation_import_approved: BoolProperty(name="I approve importing this result", default=False)
+    generation_promotion_approved: BoolProperty(name="I approve adding this asset to the factory", default=False)
 
 
 _CLASSES = (CV_AddonPreferences, CV_SessionSecrets, CV_AssetItem, CV_LogItem, CV_SceneSettings)

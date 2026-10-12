@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.0
+
+- Implemented Milestone 6 optional Tripo/Meshy generation and Asset Factory workflow.
+- Corrected Tripo to its documented v2 API task endpoint and pinned v3.1 model contract.
+- Updated Meshy to its current Text-to-3D v2 preview contract and documented PENDING-only cancellation behavior.
+- Added exact-request fingerprints, estimated-credit display, user-set credit ceilings, paid-request consent and a final confirmation dialog.
+- Added non-blocking provider submission, polling, cancellation where supported, and validated downloads without calling `bpy` from worker threads.
+- Restricted model downloads to approved HTTPS hosts, GLB/GLTF paths, 100 MB, and valid binary GLB content.
+- Added a complete zero-cost asynchronous mock lifecycle.
+- Added isolated quarantine import, driver removal, inspection summaries, provider provenance and separately approved Asset Factory promotion.
+- Added contract, budget, transport, download and Blender integration tests; no paid provider request was executed.
+
 ## 0.13.0
 
 - Completed Milestone 5 safe revisions and beta hardening.

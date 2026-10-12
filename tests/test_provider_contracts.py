@@ -6,6 +6,7 @@ from blender_addon.cozyverse_builder.providers.contracts import (
     build_plan,
     parse_status_response,
     parse_submit_response,
+    validate_budget,
     validate_download_url,
 )
 
@@ -14,6 +15,9 @@ class ProviderContractTests(unittest.TestCase):
     def test_tripo_plan_is_pinned_and_fingerprinted(self) -> None:
         plan = build_plan("TRIPO", "low-poly market stall")
         self.assertEqual(plan.model, "v3.1-20260211")
+        self.assertEqual(plan.submit_url, "https://api.tripo3d.ai/v2/openapi/task")
+        self.assertEqual(plan.payload["type"], "text_to_model")
+        self.assertEqual(plan.estimated_credits, 20)
         self.assertEqual(len(plan.fingerprint()), 64)
         self.assertTrue(plan.submit_url.startswith("https://"))
 
@@ -36,7 +40,14 @@ class ProviderContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "GLB"):
             validate_download_url("MESHY", "https://assets.meshy.ai/model.zip")
 
+    def test_budget_is_bound_to_exact_fingerprint(self) -> None:
+        plan = build_plan("MESHY", "stylized jeepney")
+        validate_budget(plan, 20, plan.fingerprint())
+        with self.assertRaisesRegex(ValueError, "match"):
+            validate_budget(plan, 20, "different")
+        with self.assertRaisesRegex(ValueError, "at least"):
+            validate_budget(plan, 19, plan.fingerprint())
+
 
 if __name__ == "__main__":
     unittest.main()
-
