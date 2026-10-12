@@ -41,10 +41,21 @@ def _addon_preferences(context: bpy.types.Context):
     return entry.preferences if entry else None
 
 
+def _draw_template_card(parent: bpy.types.UILayout, template: str, label: str, fallback_icon: str) -> None:
+    card = parent.box()
+    preview = icon_id(f"template_{template.lower()}")
+    if preview:
+        card.template_icon(icon_value=preview, scale=5.2)
+    action = card.column(align=True)
+    action.scale_y = 1.25
+    operator = action.operator("cozyverse.apply_prompt_template", text=label, icon_value=preview) if preview else action.operator("cozyverse.apply_prompt_template", text=label, icon=fallback_icon)
+    operator.template = template
+
+
 def _draw_header(layout: bpy.types.UILayout, settings) -> None:
     hero = layout.box()
     if icon_id("header"):
-        hero.template_icon(icon_value=icon_id("header"), scale=6.0)
+        hero.template_icon(icon_value=icon_id("header"), scale=10.0)
     row = hero.row(align=True)
     row.scale_y = 1.15
     row.label(text="COZYVERSE", icon="WORLD_DATA")
@@ -86,22 +97,20 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
         utilities.operator("cozyverse.reset_prompt", text="Reset", icon="LOOP_BACK")
         templates = prompt.box()
         templates.label(text="QUICK START", icon="BOOKMARKS")
-        row = templates.row(align=True)
-        for name, label, icon in (("VILLAGE", "Village", "HOME"), ("CITY", "City", "OUTLINER_OB_MESH"), ("CAFE", "Cafe", "LIGHT")):
-            custom = icon_id(f"template_{name.lower()}")
-            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon_value=custom) if custom else row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
-            operator.template = name
-        row = templates.row(align=True)
-        for name, label, icon in (("NATURE", "Nature", "WORLD"), ("FANTASY", "Fantasy", "SOLO_ON"), ("RETRO_SCIFI", "Retro Sci-Fi", "ORIENTATION_GIMBAL")):
-            custom = icon_id(f"template_{name.lower()}")
-            operator = row.operator("cozyverse.apply_prompt_template", text=label, icon_value=custom) if custom else row.operator("cozyverse.apply_prompt_template", text=label, icon=icon)
-            operator.template = name
+        for left, right in (
+            (("VILLAGE", "Village", "HOME"), ("CITY", "City", "OUTLINER_OB_MESH")),
+            (("CAFE", "Cafe", "LIGHT"), ("NATURE", "Nature", "WORLD")),
+            (("FANTASY", "Fantasy", "SOLO_ON"), ("RETRO_SCIFI", "Retro Sci-Fi", "ORIENTATION_GIMBAL")),
+        ):
+            row = templates.row(align=True)
+            _draw_template_card(row.column(align=True), *left)
+            _draw_template_card(row.column(align=True), *right)
         style = prompt.box()
         style.label(text="STYLE STUDIO", icon="BRUSH_DATA")
         style.prop(settings, "preset", text="")
         style_icon = icon_id(f"style_{settings.preset.lower()}")
         if style_icon:
-            style.template_icon(icon_value=style_icon, scale=6.0)
+            style.template_icon(icon_value=style_icon, scale=11.0)
         selected_style = STYLE_PRESETS.get(settings.preset)
         if selected_style:
             style.label(text=selected_style.description)
@@ -203,9 +212,11 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
         weather_preview = "atmosphere_windy_day"
     if settings.wetness_amount > 0.0:
         weather_preview = "atmosphere_wet_night"
+    if not weather_preview and settings.season != "SUMMER":
+        weather_preview = f"season_{settings.season.lower()}"
     atmosphere_icon = icon_id(weather_preview or f"atmosphere_{settings.atmosphere_preset.lower()}")
     if atmosphere_icon:
-        lighting.template_icon(icon_value=atmosphere_icon, scale=6.0)
+        lighting.template_icon(icon_value=atmosphere_icon, scale=11.0)
     for prop in ("time_hour", "sun_intensity", "warmth", "ambient_intensity", "exposure"):
         lighting.prop(settings, prop, slider=True)
     practical = layout.box()
@@ -229,9 +240,6 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     weather.prop(settings, "wind_amount", slider=True)
     weather.prop(settings, "wetness_amount", slider=True)
     weather.prop(settings, "season", expand=True)
-    season_icon = icon_id(f"season_{settings.season.lower()}")
-    if season_icon:
-        weather.template_icon(icon_value=season_icon, scale=6.0)
     weather.prop(settings, "weather_quality", expand=True)
     weather.label(text="Low quality is the fastest viewport preview", icon="INFO")
     actions = layout.row(align=True)
@@ -481,7 +489,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.15.1 Visual Reference Pack")
+    about.label(text="CozyVerse 0.15.2 Visual UI")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):

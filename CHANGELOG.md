@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.2
+
+- Reworked Quick Start into large two-column visual cards with explicit actions.
+- Increased header and Style Studio artwork to full-width presentation scale.
+- Replaced stacked Atmosphere/Season thumbnails with one large contextual preview that reacts to weather, wetness, wind, and season controls.
+- Preserved native Blender layouts and icon fallbacks for reliable scaling and accessibility.
+
 ## 0.15.1
 
 - Added the second supplied visual set for fog, snow, wind, wetness, four seasons, three Story Moments, three cinematic shot types, and the no-story empty state.

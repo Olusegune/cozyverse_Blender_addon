@@ -1,6 +1,6 @@
 # CozyVerse Builder
 
-CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.15.1 adds the complete supplied visual reference pack on top of composition-aware local interpretation and editable weather/seasons.
+CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.15.2 introduces a larger visual-card interface for world templates, styles, and contextual atmosphere/season previews.
 
 The foundation build provides:
 
