@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.1
+
+- Added the second supplied visual set for fog, snow, wind, wetness, four seasons, three Story Moments, three cinematic shot types, and the no-story empty state.
+- Atmosphere and season previews now react to current controls; future Story/Cinematic art is bundled but remains inactive until its separately gated milestone is approved.
+
 ## 0.15.0
 
 - Added offline reference composition analysis (aspect, brightness, contrast, warmth, focal point, and horizon cues) with explicit approximation disclosure.
@@ -8,6 +13,7 @@
 - Migrated atmosphere presets to schema 3.0 while retaining version 1 and 2 loading.
 - Added pure-Python and Blender smoke coverage for the new controls.
 - Integrated the supplied CozyVerse visual asset pack: branded header, visual Quick Start choices, live style/atmosphere previews, and image empty-state artwork with native icon fallbacks.
+- Added supplied fog, snow, wind, wetness, Spring, Summer, Autumn, Winter, Story Moment, and cinematic reference artwork; weather and season previews now react to the current controls.
 
 ## 0.14.0
 

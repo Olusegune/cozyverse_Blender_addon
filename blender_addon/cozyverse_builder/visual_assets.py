@@ -14,10 +14,14 @@ FILES = {
     "header": "brand/header_cozy_world.png",
     **{f"template_{name}": f"templates/template_{name}.png" for name in ("village", "city", "cafe", "nature", "fantasy", "farm", "market", "retro_scifi")},
     **{f"style_{name}": f"styles/style_{name}.png" for name in ("cozy_village", "retro_scifi", "cozy_fantasy", "solarpunk", "cyberpunk", "storybook", "low_poly", "clay", "papercraft", "art_deco", "gothic", "tropical")},
-    **{f"atmosphere_{name}": f"atmosphere/atmosphere_{name}.png" for name in ("golden_hour", "misty_dawn", "rainy_cafe", "moonlit")},
+    **{f"atmosphere_{name}": f"atmosphere/atmosphere_{name}.png" for name in ("golden_hour", "misty_dawn", "rainy_cafe", "moonlit", "foggy_morning", "snowy_twilight", "windy_day", "wet_night")},
+    **{f"season_{name}": f"seasons/season_{name}.png" for name in ("spring", "summer", "autumn", "winter")},
+    **{f"story_{name}": f"story/story_{name}.png" for name in ("quiet_morning", "busy_market", "rainy_evening")},
+    **{f"cinematic_{name}": f"cinematic/cinematic_{name}.png" for name in ("wide", "hero_medium", "detail_closeup")},
     "empty_no_image": "premium/empty_no_image.png",
     "empty_no_assets": "premium/empty_no_assets.png",
     "success_world_ready": "premium/success_world_ready.png",
+    "empty_no_story": "premium/empty_no_story.png",
 }
 
 

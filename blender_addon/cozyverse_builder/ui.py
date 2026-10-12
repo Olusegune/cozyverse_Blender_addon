@@ -195,7 +195,15 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     lighting = layout.box()
     lighting.label(text="SKY & SUN", icon="WORLD")
     lighting.prop(settings, "atmosphere_preset", text="Look")
-    atmosphere_icon = icon_id(f"atmosphere_{settings.atmosphere_preset.lower()}")
+    weather_preview = {
+        "FOG": "atmosphere_foggy_morning",
+        "SNOW": "atmosphere_snowy_twilight",
+    }.get(settings.weather)
+    if settings.wind_amount > 0.0:
+        weather_preview = "atmosphere_windy_day"
+    if settings.wetness_amount > 0.0:
+        weather_preview = "atmosphere_wet_night"
+    atmosphere_icon = icon_id(weather_preview or f"atmosphere_{settings.atmosphere_preset.lower()}")
     if atmosphere_icon:
         lighting.template_icon(icon_value=atmosphere_icon, scale=6.0)
     for prop in ("time_hour", "sun_intensity", "warmth", "ambient_intensity", "exposure"):
@@ -221,6 +229,9 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     weather.prop(settings, "wind_amount", slider=True)
     weather.prop(settings, "wetness_amount", slider=True)
     weather.prop(settings, "season", expand=True)
+    season_icon = icon_id(f"season_{settings.season.lower()}")
+    if season_icon:
+        weather.template_icon(icon_value=season_icon, scale=6.0)
     weather.prop(settings, "weather_quality", expand=True)
     weather.label(text="Low quality is the fastest viewport preview", icon="INFO")
     actions = layout.row(align=True)
@@ -470,7 +481,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.15.0 Reference & Weather")
+    about.label(text="CozyVerse 0.15.1 Visual Reference Pack")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):

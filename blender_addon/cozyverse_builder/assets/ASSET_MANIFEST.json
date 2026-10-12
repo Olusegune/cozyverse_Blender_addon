@@ -458,5 +458,20 @@
     "width": 640,
     "height": 400,
     "mode": "RGBA"
-  }
+  },
+  "atmosphere/atmosphere_foggy_morning.png": { "width": 1672, "height": 941, "mode": "RGB" },
+  "atmosphere/atmosphere_snowy_twilight.png": { "width": 1672, "height": 941, "mode": "RGB" },
+  "atmosphere/atmosphere_windy_day.png": { "width": 1672, "height": 941, "mode": "RGB" },
+  "atmosphere/atmosphere_wet_night.png": { "width": 1672, "height": 941, "mode": "RGB" },
+  "seasons/season_spring.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "seasons/season_summer.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "seasons/season_autumn.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "seasons/season_winter.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "story/story_quiet_morning.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "story/story_busy_market.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "story/story_rainy_evening.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "cinematic/cinematic_wide.png": { "width": 1672, "height": 941, "mode": "RGB" },
+  "cinematic/cinematic_hero_medium.png": { "width": 1672, "height": 941, "mode": "RGB" },
+  "cinematic/cinematic_detail_closeup.png": { "width": 1672, "height": 941, "mode": "RGB" },
+  "premium/empty_no_story.png": { "width": 1586, "height": 992, "mode": "RGB" }
 }

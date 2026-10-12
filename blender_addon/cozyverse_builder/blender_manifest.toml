@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "cozyverse_builder"
-version = "0.15.0"
+version = "0.15.1"
 name = "CozyVerse Builder"
 tagline = "Build editable miniature worlds from a local prompt"
 maintainer = "Wheelbarrow Studios"

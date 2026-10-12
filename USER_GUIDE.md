@@ -59,6 +59,8 @@ Atmosphere changes target the active world shown at the top of the panel. The co
 
 Choose Clear, Rain, Fog, or Snow. Rain and snow are editable preview meshes inside the active world's atmosphere collections; Preview Quality changes their bounded density. Fog uses the Blender World volume input. Wind displays an editable direction guide and stores its strength on `CV_Wind`. Wetness reduces roughness only on materials owned by the active CozyVerse world. Season recolors that world's foliage to Spring, Summer, Autumn, or Winter. These are art-direction previews rather than physical weather simulation or animation.
 
+Atmosphere Lab shows supplied visual references for fog, snow, wind, wet surfaces, and all four seasons. The images communicate the intended mood; they do not replace the editable Blender implementation or promise identical rendered geometry.
+
 ### Image to World
 
 Choose a PNG, JPEG, WebP, or TIFF and click **Analyze Composition Locally**. The image stays on your machine. CozyVerse samples its palette plus aspect, brightness, contrast, warmth, focal position, and an approximate horizon, then labels the inferred day/dusk/night direction. Choose **Blockout** for the cheapest viewport preview, **Balanced** for everyday work, or **Detailed** for more editable objects, then click **Create Editable Interpretation**.
