@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.3
+
+- Added and registered the supplied individual dark/light Story, Animate, Timeline, Shot, and Export icons.
+- Kept these icons dormant until their corresponding M8 slices are approved and implemented.
+
 ## 0.15.2
 
 - Reworked Quick Start into large two-column visual cards with explicit actions.

@@ -22,6 +22,7 @@ FILES = {
     "empty_no_assets": "premium/empty_no_assets.png",
     "success_world_ready": "premium/success_world_ready.png",
     "empty_no_story": "premium/empty_no_story.png",
+    **{f"icon_{name}_{theme}": f"icons/{theme}/icon_{name}_{theme}.png" for theme in ("dark", "light") for name in ("story", "animate", "timeline", "shot", "export")},
 }
 
 

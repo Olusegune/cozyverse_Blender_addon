@@ -473,5 +473,15 @@
   "cinematic/cinematic_wide.png": { "width": 1672, "height": 941, "mode": "RGB" },
   "cinematic/cinematic_hero_medium.png": { "width": 1672, "height": 941, "mode": "RGB" },
   "cinematic/cinematic_detail_closeup.png": { "width": 1672, "height": 941, "mode": "RGB" },
-  "premium/empty_no_story.png": { "width": 1586, "height": 992, "mode": "RGB" }
+  "premium/empty_no_story.png": { "width": 1586, "height": 992, "mode": "RGB" },
+  "icons/dark/icon_story_dark.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/dark/icon_animate_dark.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/dark/icon_timeline_dark.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/dark/icon_shot_dark.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/dark/icon_export_dark.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/light/icon_story_light.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/light/icon_animate_light.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/light/icon_timeline_light.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/light/icon_shot_light.png": { "width": 128, "height": 128, "mode": "RGB" },
+  "icons/light/icon_export_light.png": { "width": 128, "height": 128, "mode": "RGB" }
 }

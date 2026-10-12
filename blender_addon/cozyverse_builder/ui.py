@@ -489,7 +489,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.15.2 Visual UI")
+    about.label(text="CozyVerse 0.15.3 Visual UI")
 
 
 class CV_PT_Main(_CVPanel, bpy.types.Panel):
