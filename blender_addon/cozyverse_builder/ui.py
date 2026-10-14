@@ -8,7 +8,7 @@ import json
 from .core.composition_spec import profile_for
 from .core.scene_plan import proposed_plan
 from .core.style_spec import STYLE_PRESETS
-from .flow import SHOTS, TABS
+from .flow import LOOKS, SHOTS, TABS, _turntable_for
 from .visual_assets import icon_id
 
 VERSION_LABEL = "0.17.0 Magic Flow"
@@ -185,6 +185,9 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
         note = body.row()
         note.active = False
         note.label(text="Builds are always new versions.", icon="LOCKED")
+        keys = body.row()
+        keys.active = False
+        keys.label(text="Alt+W pie menu · Shift+Alt+W quick conjure", icon="EVENT_W")
 
     if not settings.onboarding_complete:
         layout.operator("cozyverse.dismiss_onboarding", text="Got it", icon="CHECKMARK")
@@ -340,6 +343,20 @@ def _draw_shot(layout: bpy.types.UILayout, context: bpy.types.Context, settings)
         note = card.row()
         note.active = False
         note.label(text=description)
+    header, body = layout.panel("cv_shot_turntable", default_closed=False)
+    header.label(text="Turntable", icon="ORIENTATION_GIMBAL")
+    if body is not None:
+        if _turntable_for(_active_world(settings)) is not None:
+            body.label(text="The camera orbits the world on a loop.", icon="CHECKMARK")
+            row = body.row(align=True)
+            row.operator("cozyverse.turntable", text="Rebuild", icon="FILE_REFRESH")
+            row.operator("cozyverse.clear_turntable", text="Remove", icon="X")
+            hint = body.row()
+            hint.active = False
+            hint.label(text="Press Space to play. Keyframes are editable.")
+        else:
+            body.prop(settings, "turntable_frames")
+            body.operator("cozyverse.turntable", text="Add Turntable", icon="ORIENTATION_GIMBAL")
     post = layout.column(align=True)
     post.scale_y = 1.7
     post.operator("cozyverse.render_postcard", text="Render Postcard", icon="RENDER_STILL")
@@ -692,7 +709,34 @@ class CV_TEXT_PT_Prompt(bpy.types.Panel):
 
 
 
-_CLASSES = (CV_PT_Main, CV_TEXT_PT_Prompt)
+class CV_MT_PieMain(bpy.types.Menu):
+    bl_idname = "CV_MT_pie_main"
+    bl_label = "CozyVerse"
+
+    def draw(self, context: bpy.types.Context) -> None:
+        pie = self.layout.menu_pie()
+        settings = context.scene.cozyverse
+        world = _active_world(settings)
+        if world is None:
+            # Slots run West, East, South, North, then the four corners.
+            pie.separator()
+            pie.separator()
+            pie.operator("cozyverse.quick_conjure", text="Conjure a World", icon="WORLD_DATA")
+            pie.operator("cozyverse.surprise", text="Surprise Me", icon="SHADERFX")
+            return
+        names = dict(LOOKS)
+        icons = {"GOLDEN_HOUR": "LIGHT_SUN", "MOONLIT": "SHADING_RENDERED", "RAINY_CAFE": "MOD_FLUID", "MISTY_DAWN": "LIGHT_AREA", "BLUE_HOUR": "LIGHT_POINT"}
+        for look in ("GOLDEN_HOUR", "MOONLIT"):
+            pie.operator("cozyverse.set_look", text=names[look], icon=icons[look]).look = look
+        pie.operator("cozyverse.conjure", text="Remix Layout", icon="FILE_REFRESH").remix = True
+        pie.operator("cozyverse.set_look", text=names["RAINY_CAFE"], icon=icons["RAINY_CAFE"]).look = "RAINY_CAFE"
+        for look in ("MISTY_DAWN", "BLUE_HOUR"):
+            pie.operator("cozyverse.set_look", text=names[look], icon=icons[look]).look = look
+        pie.operator("cozyverse.next_shot", text="Next Shot", icon="CAMERA_DATA")
+        pie.operator("cozyverse.toggle_turntable", text="Turntable", icon="ORIENTATION_GIMBAL", depress=_turntable_for(world) is not None)
+
+
+_CLASSES = (CV_PT_Main, CV_TEXT_PT_Prompt, CV_MT_PieMain)
 
 
 def register() -> None:

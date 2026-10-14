@@ -256,6 +256,13 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         description="Pause after Conjure so you can adjust the plan before anything is built. Off by default: builds are always new versions and never overwrite your work",
         default=False,
     )
+    turntable_frames: IntProperty(
+        name="Frames per turn",
+        description="Length of one full orbit; at 24 fps, 120 frames is five seconds",
+        default=120,
+        min=24,
+        max=1200,
+    )
     variation: IntProperty(name="Remix", description="Layout variation number for the active prompt", default=0, min=0)
     operation_progress: FloatProperty(name="Progress", default=0.0, min=0.0, max=1.0, subtype="FACTOR")
     last_error: StringProperty(name="Last Error", default="", maxlen=1024)

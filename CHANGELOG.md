@@ -2,6 +2,8 @@
 
 ## 0.17.0 Magic Flow
 
+- **Turntable** (Shot tab): one click parents the current camera to a small rig that orbits the world once on a seamless, linear, editable keyframe loop. Rebuild never duplicates it, and Remove puts the camera back exactly where it was, with no leftover objects or actions. Length is set in frames (default 120).
+- **Pie menu** on Alt+W in the 3D View: Golden Hour, Moonlit, Rainy Evening, Misty Dawn, Blue Hour, Remix Layout, Next Shot and a Turntable toggle. With no world yet it offers Conjure and Surprise Me instead. Keys can be changed in Preferences > Keymap.
 - One-click **Conjure World**: describe, press the button, get an approved, built, framed, Material-Preview-lit world with an animated reveal. Every build is still a new version; "Review the plan first" restores the old gated flow.
 - Dice (Surprise Me, Ctrl builds it), **Remix Layout** (re-roll the layout, keep the plan), and a Shift+Alt+W quick-conjure popup from the 3D View.
 - A single tabbed panel (Create, Mood, Shot, Motion, Assets, Activity, Settings) with a "What next?" guide after each build, native collapsible sections, icon galleries for Style and Look, live "reads as" feedback, and an inline prompt field.

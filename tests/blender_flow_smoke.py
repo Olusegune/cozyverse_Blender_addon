@@ -82,6 +82,39 @@ try:
     assert bpy.ops.cozyverse.inspect_manual_edits() == {"FINISHED"}
     assert "0 changed" in settings.status
 
+    # Turntable: a seamless linear orbit that can be removed without leaving a trace.
+    import math
+    camera = scene.camera
+    start = camera.matrix_world.translation.copy()
+    settings.turntable_frames = 48
+    assert bpy.ops.cozyverse.turntable() == {"FINISHED"}
+    rig = next(obj for obj in bpy.data.collections[second].all_objects if obj.get("cv_turntable"))
+    assert camera.parent is rig and scene.frame_end == 48
+    scene.frame_set(1)
+    assert (camera.matrix_world.translation - start).length < 1e-4
+    scene.frame_set(25)
+    halfway = camera.matrix_world.translation
+    assert abs(halfway.x + start.x) < 0.02 and abs(halfway.y + start.y) < 0.02  # half a turn, linear
+    scene.frame_set(1)
+    assert bpy.ops.cozyverse.turntable() == {"FINISHED"}  # rebuilding never duplicates the rig
+    assert len([obj for obj in bpy.data.objects if obj.get("cv_turntable")]) == 1
+    assert bpy.ops.cozyverse.inspect_manual_edits() == {"FINISHED"} and "0 changed" in settings.status
+    assert bpy.ops.cozyverse.toggle_turntable() == {"FINISHED"}  # second toggle removes it
+    assert camera.parent is None and (camera.matrix_world.translation - start).length < 1e-4
+    assert not [obj for obj in bpy.data.objects if obj.get("cv_turntable")]
+    assert not [action for action in bpy.data.actions if action.name.startswith("CV_TURNTABLE")]
+    assert bpy.ops.cozyverse.toggle_turntable() == {"FINISHED"}
+    assert bpy.ops.cozyverse.clear_turntable() == {"FINISHED"}
+    assert bpy.ops.cozyverse.clear_turntable() == {"CANCELLED"}
+
+    # Pie menu actions.
+    assert hasattr(bpy.types, "CV_MT_pie_main")
+    assert bpy.ops.cozyverse.set_look(look="MOONLIT") == {"FINISHED"} and settings.atmosphere_preset == "MOONLIT"
+    scene.camera = base_camera
+    assert bpy.ops.cozyverse.next_shot() == {"FINISHED"} and scene.camera.get("cv_shot") == "HERO"
+    assert bpy.ops.cozyverse.next_shot() == {"FINISHED"} and scene.camera.get("cv_shot") == "DETAIL"
+    assert bpy.ops.cozyverse.next_shot() == {"FINISHED"} and scene.camera is base_camera
+
     # Time of day and tabs.
     assert bpy.ops.cozyverse.set_time_of_day(hour=6.0) == {"FINISHED"}
     assert settings.time_hour == 6.0 and settings.atmosphere_preset == "CUSTOM"

@@ -349,6 +349,144 @@ class CV_OT_FrameShot(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _turntable_for(world):
+    cameras = _camera_collection(world) if world is not None else None
+    return next((obj for obj in cameras.objects if obj.get("cv_turntable")), None) if cameras is not None else None
+
+
+def _remove_turntable(empty) -> None:
+    """Unparent the orbiting camera (it returns exactly where it was) and delete the rig."""
+    if empty is None:
+        return
+    camera = bpy.data.objects.get(empty.get("cv_turntable_camera", ""))
+    if camera is not None and camera.parent is empty:
+        camera.parent = None
+        camera.matrix_parent_inverse.identity()
+    animation = empty.animation_data
+    action = animation.action if animation else None
+    bpy.data.objects.remove(empty)
+    if action is not None and action.users == 0:
+        bpy.data.actions.remove(action)
+
+
+class CV_OT_Turntable(bpy.types.Operator):
+    bl_idname = "cozyverse.turntable"
+    bl_label = "Add Turntable"
+    bl_description = "Orbit the current camera once around the world on a seamless loop. Editable keyframes; Remove Turntable puts the camera back"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        scene = context.scene
+        world = bpy.data.collections.get(settings.active_world_name)
+        cameras = _camera_collection(world) if world is not None else None
+        camera = scene.camera
+        if world is None or cameras is None or camera is None:
+            self.report({"WARNING"}, "Conjure or select a world first")
+            return {"CANCELLED"}
+        _remove_turntable(_turntable_for(world))
+        frames = settings.turntable_frames
+        empty = bpy.data.objects.new("CV_Turntable", None)
+        empty.empty_display_type = "CIRCLE"
+        empty.empty_display_size = 1.5
+        cameras.objects.link(empty)
+        empty["cv_managed"] = True
+        empty["cv_demo"] = True
+        empty["cv_locked"] = False
+        empty["cv_turntable"] = True
+        empty["cv_world_root"] = world.name
+        empty["cv_turntable_camera"] = camera.name
+        camera.parent = empty
+        camera.matrix_parent_inverse = empty.matrix_world.inverted()
+        edit = context.preferences.edit
+        previous = edit.keyframe_new_interpolation_type
+        edit.keyframe_new_interpolation_type = "LINEAR"
+        try:
+            for frame, angle in ((1, 0.0), (frames + 1, math.tau)):
+                empty.rotation_euler = (0.0, 0.0, angle)
+                empty.keyframe_insert(data_path="rotation_euler", index=2, frame=frame, group="CozyVerse Turntable")
+        finally:
+            edit.keyframe_new_interpolation_type = previous
+        empty.rotation_euler = (0.0, 0.0, 0.0)
+        action = empty.animation_data.action if empty.animation_data else None
+        if action is not None:
+            action.name = f"CV_TURNTABLE_{world.name}"[:63]
+            action["cv_managed"] = True
+        scene.frame_start = 1
+        scene.frame_end = frames
+        scene.frame_set(1)
+        settings.status = f"Turntable ready: {frames} frames, press Space to watch it loop"
+        _log_activity(context, "TURNTABLE", f"Added a {frames}-frame turntable to {world.name}")
+        return {"FINISHED"}
+
+
+class CV_OT_ClearTurntable(bpy.types.Operator):
+    bl_idname = "cozyverse.clear_turntable"
+    bl_label = "Remove Turntable"
+    bl_description = "Remove the orbit rig and put the camera back where it was"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        world = bpy.data.collections.get(context.scene.cozyverse.active_world_name)
+        empty = _turntable_for(world)
+        if empty is None:
+            return {"CANCELLED"}
+        _remove_turntable(empty)
+        context.scene.cozyverse.status = "Turntable removed; the camera is back where it was"
+        return {"FINISHED"}
+
+
+class CV_OT_ToggleTurntable(bpy.types.Operator):
+    bl_idname = "cozyverse.toggle_turntable"
+    bl_label = "Toggle Turntable"
+    bl_description = "Add the turntable, or remove it if it is already there"
+
+    def execute(self, context: bpy.types.Context):
+        world = bpy.data.collections.get(context.scene.cozyverse.active_world_name)
+        if _turntable_for(world) is not None:
+            return bpy.ops.cozyverse.clear_turntable()
+        return bpy.ops.cozyverse.turntable()
+
+
+class CV_OT_NextShot(bpy.types.Operator):
+    bl_idname = "cozyverse.next_shot"
+    bl_label = "Next Shot"
+    bl_description = "Cycle Wide, Hero and Detail cameras"
+
+    def execute(self, context: bpy.types.Context):
+        order = [shot[0] for shot in SHOTS]
+        current = context.scene.camera.get("cv_shot", "WIDE") if context.scene.camera is not None else "WIDE"
+        following = order[(order.index(current) + 1) % len(order)] if current in order else "WIDE"
+        return bpy.ops.cozyverse.frame_shot(shot=following)
+
+
+LOOKS = (
+    ("GOLDEN_HOUR", "Golden Hour"),
+    ("RAINY_CAFE", "Rainy Evening"),
+    ("MOONLIT", "Moonlit"),
+    ("MISTY_DAWN", "Misty Dawn"),
+    ("BRIGHT_DAY", "Bright Day"),
+    ("BLUE_HOUR", "Blue Hour"),
+)
+
+
+class CV_OT_SetLook(bpy.types.Operator):
+    bl_idname = "cozyverse.set_look"
+    bl_label = "Set Look"
+    bl_description = "Switch the world to a lighting and weather look"
+
+    look: EnumProperty(items=[(identifier, label, label) for identifier, label in LOOKS], default="GOLDEN_HOUR")
+
+    @classmethod
+    def description(cls, _context, properties):
+        return f"Switch to the {dict(LOOKS).get(properties.look, 'selected')} look"
+
+    def execute(self, context: bpy.types.Context):
+        context.scene.cozyverse.atmosphere_preset = self.look
+        context.scene.cozyverse.status = f"Look: {dict(LOOKS)[self.look]}"
+        return {"FINISHED"}
+
+
 class CV_OT_RenderPostcard(bpy.types.Operator):
     bl_idname = "cozyverse.render_postcard"
     bl_label = "Render Postcard"
@@ -371,7 +509,7 @@ class CV_OT_RenderPostcard(bpy.types.Operator):
 
 
 _KEYMAPS: list = []
-_CLASSES = (CV_OT_Conjure, CV_OT_Surprise, CV_OT_QuickConjure, CV_OT_RevealWorld, CV_OT_GotoTab, CV_OT_SetTimeOfDay, CV_OT_FrameShot, CV_OT_RenderPostcard)
+_CLASSES = (CV_OT_Conjure, CV_OT_Surprise, CV_OT_QuickConjure, CV_OT_RevealWorld, CV_OT_GotoTab, CV_OT_SetTimeOfDay, CV_OT_FrameShot, CV_OT_Turntable, CV_OT_ClearTurntable, CV_OT_ToggleTurntable, CV_OT_NextShot, CV_OT_SetLook, CV_OT_RenderPostcard)
 
 
 def register() -> None:
@@ -383,6 +521,9 @@ def register() -> None:
         keymap = keyconfig.keymaps.new(name="3D View", space_type="VIEW_3D")
         item = keymap.keymap_items.new("cozyverse.quick_conjure", "W", "PRESS", shift=True, alt=True)
         _KEYMAPS.append((keymap, item))
+        pie = keymap.keymap_items.new("wm.call_menu_pie", "W", "PRESS", alt=True)
+        pie.properties.name = "CV_MT_pie_main"
+        _KEYMAPS.append((keymap, pie))
 
 
 def unregister() -> None:
