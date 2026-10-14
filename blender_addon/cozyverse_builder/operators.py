@@ -17,6 +17,7 @@ from .atmosphere import apply_atmosphere
 from .core.atmosphere_spec import AtmosphereValues, PRESETS, deserialize_preset, serialize_preset
 from .core.demo_spec import DEFAULT_PROMPT
 from .world_builder import build_offline_world
+from .materials import sync_color
 from .providers.contracts import GenerationPlan, build_plan, validate_budget, validate_download_url
 from .providers import runtime as provider_runtime
 from .core.reference_spec import analyze_composition, dominant_palette, reference_plan, scan_asset_files, validate_reference_path
@@ -610,7 +611,7 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             settings.operation_progress = 0.55
             settings.status = "Building a new editable world version..."
             source_world = settings.revision_source_world
-            world = build_offline_world(context.scene, settings, plan.prompt, json.loads(settings.scene_plan_json))
+            world = build_offline_world(context.scene, settings, plan.prompt, json.loads(settings.scene_plan_json), variation=settings.variation)
             world["cv_revision_source"] = source_world
             world["cv_revision_preview"] = settings.revision_preview_json
             world["cv_revision_fingerprint"] = settings.revision_fingerprint
@@ -649,11 +650,13 @@ class CV_OT_SelectWorld(bpy.types.Operator):
             return {"CANCELLED"}
         bpy.ops.object.select_all(action="DESELECT")
         objects = _world_objects(world)
+        # Frame the visible geometry only; the camera and lights sit far outside the diorama.
+        meshes = [obj for obj in objects if obj.type == "MESH" and not obj.get("cv_weather")]
         for obj in objects:
             obj.hide_set(False)
-            obj.select_set(True)
+            obj.select_set(obj in meshes or not meshes)
         if objects:
-            context.view_layer.objects.active = objects[0]
+            context.view_layer.objects.active = (meshes or objects)[0]
         context.scene.cozyverse.active_world_name = world.name
         context.scene.cozyverse.story_active_id = _story_id_for_world(world)
         context.scene.cozyverse.story_status = "Active Story loaded" if context.scene.cozyverse.story_active_id else "No Story applied to this world"
@@ -670,6 +673,8 @@ class CV_OT_SelectWorld(bpy.types.Operator):
                 context.scene.cozyverse.recovery_hint = "This world's older atmosphere data could not be loaded; save a new look to replace it."
         if context.area is not None and context.area.type == "VIEW_3D" and objects:
             bpy.ops.view3d.view_selected(use_all_regions=False)
+            for obj in objects:
+                obj.select_set(True)
         context.scene.cozyverse.status = f"Selected {world.name}: {len(objects)} objects"
         return {"FINISHED"}
 
@@ -1239,7 +1244,7 @@ class CV_OT_RecreateReferenceMock(bpy.types.Operator):
                     continue
                 for prefix, color in colors.items():
                     if material.name == prefix or material.name.startswith(prefix + "."):
-                        material.diffuse_color = (*color, 1.0)
+                        sync_color(material, (*color, 1.0))
         root["cv_reference_image"] = settings.reference_image_path
         root["cv_reference_mode"] = "local_composition_interpretation"
         root["cv_reference_analysis"] = analysis.to_json()

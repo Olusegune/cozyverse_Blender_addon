@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.17.0 Magic Flow
+
+- One-click **Conjure World**: describe, press the button, get an approved, built, framed, Material-Preview-lit world with an animated reveal. Every build is still a new version; "Review the plan first" restores the old gated flow.
+- Dice (Surprise Me, Ctrl builds it), **Remix Layout** (re-roll the layout, keep the plan), and a Shift+Alt+W quick-conjure popup from the 3D View.
+- A single tabbed panel (Create, Mood, Shot, Motion, Assets, Activity, Settings) with a "What next?" guide after each build, native collapsible sections, icon galleries for Style and Look, live "reads as" feedback, and an inline prompt field.
+- Mood tab: time-of-day chips, a live clock, and a time-of-day sky gradient backdrop.
+- Shot tab: Wide, Hero, and Detail (depth of field) cameras created as separate cameras (the original is never moved), plus Render Postcard.
+- Real Principled shader materials so EEVEE and Cycles renders match the viewport; windows glow in step with the practical lights.
+- Fixed: rain and snow previews were visible on every fresh build; their transforms were also mistaken for hand edits.
+- Fixed: Select and Frame now frames the diorama instead of the distant camera and lights.
+- Added tests/blender_flow_smoke.py.
+
 ## 0.16.0
 
 - Added the approved M8.1 Story Moments workspace with large supplied artwork and Story/Animate/Timeline icons.

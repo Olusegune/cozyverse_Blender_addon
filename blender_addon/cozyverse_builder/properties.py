@@ -7,6 +7,7 @@ from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatPrope
 
 from .core.demo_spec import DEFAULT_PROMPT
 from .core.style_spec import style_items
+from .visual_assets import icon_id
 
 
 def _update_atmosphere(self, context: bpy.types.Context) -> None:
@@ -40,6 +41,46 @@ def _update_atmosphere_preset(self, context: bpy.types.Context) -> None:
     self.season = values.season
     self.weather_quality = values.weather_quality
     _update_atmosphere(self, context)
+
+
+_ENUM_KEEPALIVE: dict[str, list] = {}
+
+_LOOK_PREVIEWS = {
+    "GOLDEN_HOUR": ("atmosphere_golden_hour", "LIGHT_SUN"),
+    "RAINY_CAFE": ("atmosphere_rainy_cafe", "OUTLINER_OB_LIGHT"),
+    "MOONLIT": ("atmosphere_moonlit", "SHADING_RENDERED"),
+    "MISTY_DAWN": ("atmosphere_misty_dawn", "LIGHT_AREA"),
+    "BRIGHT_DAY": ("season_summer", "LIGHT_SUN"),
+    "BLUE_HOUR": ("atmosphere_wet_night", "LIGHT_POINT"),
+    "CUSTOM": ("", "OPTIONS"),
+}
+
+
+def _style_items_with_previews(_self, _context):
+    items = [
+        (identifier, label, description, icon_id(f"style_{identifier.lower()}") or "BRUSH_DATA", index)
+        for index, (identifier, label, description) in enumerate(style_items())
+    ]
+    _ENUM_KEEPALIVE["style"] = items
+    return items
+
+
+def _look_items_with_previews(_self, _context):
+    base = (
+        ("GOLDEN_HOUR", "Golden Hour", "Warm sunset lighting"),
+        ("RAINY_CAFE", "Rainy Cafe", "Evening practical lights and visible rain"),
+        ("MOONLIT", "Moonlit", "Cool low-light night"),
+        ("MISTY_DAWN", "Misty Dawn", "Soft dawn lighting"),
+        ("BRIGHT_DAY", "Bright Day", "Clean daylight with practical lights off"),
+        ("BLUE_HOUR", "Blue Hour", "Cool twilight with warm practical lights"),
+        ("CUSTOM", "Custom", "Current custom values"),
+    )
+    items = []
+    for index, (identifier, label, description) in enumerate(base):
+        key, fallback = _LOOK_PREVIEWS[identifier]
+        items.append((identifier, label, description, (icon_id(key) if key else 0) or fallback, index))
+    _ENUM_KEEPALIVE["look"] = items
+    return items
 
 
 def _invalidate_story_preview(self, _context: bpy.types.Context) -> None:
@@ -210,6 +251,12 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     plan_character_count: IntProperty(name="Characters", default=2, min=0, max=20)
     plan_include_road: BoolProperty(name="Road or Main Path", default=True)
     plan_approved: BoolProperty(name="I reviewed this plan", default=False)
+    review_before_build: BoolProperty(
+        name="Review the plan first",
+        description="Pause after Conjure so you can adjust the plan before anything is built. Off by default: builds are always new versions and never overwrite your work",
+        default=False,
+    )
+    variation: IntProperty(name="Remix", description="Layout variation number for the active prompt", default=0, min=0)
     operation_progress: FloatProperty(name="Progress", default=0.0, min=0.0, max=1.0, subtype="FACTOR")
     last_error: StringProperty(name="Last Error", default="", maxlen=1024)
     recovery_hint: StringProperty(name="Recovery", default="", maxlen=1024)
@@ -269,35 +316,26 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     preset: EnumProperty(
         name="Visual Style",
         description="Shared style direction for prompts, materials, and future asset matching",
-        items=style_items(),
-        default="COZY_VILLAGE",
+        items=_style_items_with_previews,
     )
     status: StringProperty(name="Status", default="Ready for a local demonstration")
     last_demo_prompt: StringProperty(name="Last Demo Prompt", default="", maxlen=4000)
     active_tab: EnumProperty(
         name="Workspace",
         items=(
-            ("CREATE", "Create", "Create an editable local demonstration", "MOD_BUILD", 0),
-            ("ATMOSPHERE", "Atmosphere", "Control lighting, time, and rain", "LIGHT_SUN", 1),
-            ("STORY", "Story", "Stage an optional editable Story Moment", "ACTION", 2),
-            ("GENERATE", "Generate", "Preview and approve optional 3D generation", "MESH_ICOSPHERE", 3),
-            ("ACTIVITY", "Activity", "Review current status and local activity", "INFO", 4),
-            ("SETTINGS", "Settings", "Configure local and future provider settings", "PREFERENCES", 5),
+            ("CREATE", "Create", "Describe and conjure a world", "MOD_BUILD", 0),
+            ("ATMOSPHERE", "Mood", "Light, time of day, weather and seasons", "LIGHT_SUN", 1),
+            ("STORY", "Motion", "Bring the world to life with editable animation", "ACTION", 2),
+            ("GENERATE", "Assets", "Local assets, reference images and 3D generation", "ASSET_MANAGER", 3),
+            ("ACTIVITY", "Activity", "Versions, recovery and the activity log", "INFO", 4),
+            ("SETTINGS", "Settings", "Connections and preferences", "PREFERENCES", 5),
+            ("SHOT", "Shot", "Frame cinematic cameras and render a postcard", "CAMERA_DATA", 6),
         ),
         default="CREATE",
     )
     atmosphere_preset: EnumProperty(
         name="Atmosphere Preset",
-        items=(
-            ("GOLDEN_HOUR", "Golden Hour", "Warm sunset lighting"),
-            ("RAINY_CAFE", "Rainy Cafe", "Evening practical lights and visible rain"),
-            ("MOONLIT", "Moonlit", "Cool low-light night"),
-            ("MISTY_DAWN", "Misty Dawn", "Soft dawn lighting"),
-            ("BRIGHT_DAY", "Bright Day", "Clean daylight with practical lights off"),
-            ("BLUE_HOUR", "Blue Hour", "Cool twilight with warm practical lights"),
-            ("CUSTOM", "Custom", "Current custom values"),
-        ),
-        default="GOLDEN_HOUR",
+        items=_look_items_with_previews,
         update=_update_atmosphere_preset,
     )
     time_hour: FloatProperty(

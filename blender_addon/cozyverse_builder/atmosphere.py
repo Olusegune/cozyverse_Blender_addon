@@ -7,6 +7,7 @@ import random
 
 import bpy
 
+from .materials import sync_color, sync_glow, sync_roughness
 from .core.atmosphere_spec import AtmosphereValues, kelvin_rgb, serialize_preset, sun_azimuth_degrees, sun_elevation_degrees, warmth_rgb
 
 
@@ -40,6 +41,20 @@ def _set_precipitation_density(obj: bpy.types.Object, kind: str, quality: str) -
     obj.data.from_pydata(vertices, [], faces)
     obj.data.update()
     obj["cv_particle_count"] = count
+
+
+def _mix(a, b, t):
+    return tuple(x + (y - x) * t for x, y in zip(a, b))
+
+
+def _sky_color(settings) -> tuple[float, float, float, float]:
+    """Soft time-of-day backdrop: deep blue night, pale day, warm glow near the horizon."""
+    elevation = sun_elevation_degrees(settings.time_hour)
+    daylight = max(0.0, min(1.0, (elevation + 8.0) / 66.0)) ** 0.8
+    sky = _mix((0.02, 0.035, 0.11), (0.46, 0.64, 0.90), daylight)
+    glow = max(0.0, 1.0 - abs(elevation - 6.0) / 16.0) * (settings.warmth / 100.0)
+    sky = _mix(sky, (0.95, 0.52, 0.30), glow * 0.55)
+    return (*sky, 1.0)
 
 
 def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
@@ -77,14 +92,7 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
     if background is not None:
         ambient = settings.ambient_intensity / 100.0
         background.inputs["Strength"].default_value = 0.03 + ambient * 0.55
-        warm = warmth_rgb(settings.warmth)
-        night = 1.0 if 7.0 <= settings.time_hour <= 19.0 else 0.25
-        background.inputs["Color"].default_value = (
-            warm[0] * 0.12 * night,
-            warm[1] * 0.16 * night,
-            warm[2] * 0.24,
-            1.0,
-        )
+        background.inputs["Color"].default_value = _sky_color(settings)
         changed = True
 
     if world.node_tree is not None:
@@ -155,9 +163,15 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
                 seen_materials.add(material)
                 if "cv_dry_roughness" not in material:
                     material["cv_dry_roughness"] = material.roughness
-                material.roughness = max(0.08, float(material["cv_dry_roughness"]) * (1.0 - settings.wetness_amount / 125.0))
+                sync_roughness(material, max(0.08, float(material["cv_dry_roughness"]) * (1.0 - settings.wetness_amount / 125.0)))
                 if material.name.startswith("CV_Mat_Leaves"):
-                    material.diffuse_color = season_colors[settings.season]
+                    sync_color(material, season_colors[settings.season])
+                if material.get("cv_emissive"):
+                    if material.name.startswith("CV_Mat_Window"):
+                        glow = (settings.interior_intensity / 100.0) * 6.0 if settings.practical_lights else 0.0
+                        sync_glow(material, glow, kelvin_rgb(settings.practical_temperature))
+                    else:
+                        sync_glow(material, 0.8, tuple(material.diffuse_color)[:3])
 
     scene.view_settings.exposure = settings.exposure
     if world_collection is not None and world_collection.get("cv_managed"):

@@ -12,6 +12,8 @@ _ROOT = Path(__file__).with_name("assets")
 
 FILES = {
     "header": "brand/header_cozy_world.png",
+    "logo_mark": "brand/cozyverse_logo_mark.png",
+    "empty_no_world": "premium/empty_no_world.png",
     **{f"template_{name}": f"templates/template_{name}.png" for name in ("village", "city", "cafe", "nature", "fantasy", "farm", "market", "retro_scifi")},
     **{f"style_{name}": f"styles/style_{name}.png" for name in ("cozy_village", "retro_scifi", "cozy_fantasy", "solarpunk", "cyberpunk", "storybook", "low_poly", "clay", "papercraft", "art_deco", "gothic", "tropical")},
     **{f"atmosphere_{name}": f"atmosphere/atmosphere_{name}.png" for name in ("golden_hour", "misty_dawn", "rainy_cafe", "moonlit", "foggy_morning", "snowy_twilight", "windy_day", "wet_night")},

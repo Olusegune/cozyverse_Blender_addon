@@ -1,18 +1,23 @@
-"""CozyVerse sidebar panels using Blender-native, theme-aware controls."""
+"""CozyVerse sidebar: one tabbed panel that always shows the next best action."""
 
 from __future__ import annotations
 
 import bpy
 import json
 
+from .core.composition_spec import profile_for
+from .core.scene_plan import proposed_plan
 from .core.style_spec import STYLE_PRESETS
+from .flow import SHOTS, TABS
 from .visual_assets import icon_id
 
+VERSION_LABEL = "0.17.0 Magic Flow"
 
-class _CVPanel:
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "CozyVerse"
+
+def _ico(key: str, fallback: str) -> dict:
+    """Icon kwargs: bundled artwork when present, otherwise a native Blender icon."""
+    value = icon_id(key)
+    return {"icon_value": value} if value else {"icon": fallback}
 
 
 def _wrapped_lines(value: str, width: int = 34, limit: int = 5) -> list[str]:
@@ -41,213 +46,306 @@ def _addon_preferences(context: bpy.types.Context):
     return entry.preferences if entry else None
 
 
-def _draw_template_card(parent: bpy.types.UILayout, template: str, label: str, fallback_icon: str) -> None:
-    card = parent.box()
-    preview = icon_id(f"template_{template.lower()}")
-    if preview:
-        card.template_icon(icon_value=preview, scale=5.2)
-    action = card.column(align=True)
-    action.scale_y = 1.25
-    operator = action.operator("cozyverse.apply_prompt_template", text=label, icon_value=preview) if preview else action.operator("cozyverse.apply_prompt_template", text=label, icon=fallback_icon)
-    operator.template = template
+def _active_world(settings):
+    world = bpy.data.collections.get(settings.active_world_name) if settings.active_world_name else None
+    return world if world is not None and world.get("cv_managed") else None
 
 
-def _draw_header(layout: bpy.types.UILayout, settings) -> None:
-    hero = layout.box()
-    if icon_id("header"):
-        hero.template_icon(icon_value=icon_id("header"), scale=10.0)
-    row = hero.row(align=True)
-    row.scale_y = 1.15
-    row.label(text="COZYVERSE", icon="WORLD_DATA")
-    badge = row.row(align=True)
-    badge.alignment = "RIGHT"
-    badge.label(text="LOCAL SAFE", icon="LOCKED")
-    hero.label(text="Editable miniature worlds", icon="MESH_ICOSPHERE")
-    hero.label(text=settings.status, icon="INFO")
+def _clock(hour: float) -> str:
+    hour = hour % 24.0
+    whole = int(hour)
+    return f"{whole:02d}:{int((hour - whole) * 60):02d}"
+
+
+def _needs_world(layout: bpy.types.UILayout, settings, what: str) -> bool:
+    """Friendly empty state. Returns True when there is no world to act on."""
+    if _active_world(settings) is not None:
+        return False
+    box = layout.box()
+    box.scale_y = 1.1
+    if icon_id("empty_no_world"):
+        box.template_icon(icon_value=icon_id("empty_no_world"), scale=5.0)
+    box.label(text=f"Conjure a world to {what}", icon="WORLD_DATA")
+    box.operator("cozyverse.goto_tab", text="Go to Create", icon="MOD_BUILD").tab = "CREATE"
+    return True
+
+
+def _draw_header(layout: bpy.types.UILayout, context: bpy.types.Context, settings) -> None:
+    top = layout.row(align=True)
+    top.label(text="CozyVerse", **_ico("logo_mark", "WORLD_DATA"))
+    tail = top.row(align=True)
+    tail.alignment = "RIGHT"
+    tail.label(text=VERSION_LABEL)
+    tabs = layout.row(align=True)
+    tabs.scale_y = 1.3
+    for identifier, label, _description, icon, _index in TABS:
+        button = tabs.operator("cozyverse.goto_tab", text="", icon=icon, depress=settings.active_tab == identifier)
+        button.tab = identifier
+    current = next((tab for tab in TABS if tab[0] == settings.active_tab), TABS[0])
+    title = layout.row()
+    title.label(text=current[1], icon=current[3])
+    status = layout.row()
+    status.active = False
+    status.label(text=settings.status[:60])
+    if settings.last_error:
+        error = layout.box()
+        error.alert = True
+        for line in _wrapped_lines(settings.last_error, width=44, limit=3):
+            error.label(text=line, icon="ERROR")
+        if settings.recovery_hint:
+            for line in _wrapped_lines(settings.recovery_hint, width=44, limit=2):
+                error.label(text=line)
+
+
+def _draw_prompt_field(layout: bpy.types.UILayout, settings) -> None:
+    if settings.prompt_text is not None and settings.prompt_text.as_string().strip():
+        box = layout.box()
+        box.label(text="Using the multiline prompt", icon="TEXT")
+        for line in _wrapped_lines(settings.prompt_text.as_string(), width=42, limit=3):
+            box.label(text=line)
+        box.operator("cozyverse.reset_prompt", text="Use the one-line prompt instead", icon="LOOP_BACK")
+        return
+    layout.prop(settings, "prompt", text="", placeholder="Describe your world… a rainy cafe on a tiny island")
+
+
+def _draw_reads_as(layout: bpy.types.UILayout, settings) -> None:
+    value = settings.prompt_text.as_string() if settings.prompt_text and settings.prompt_text.as_string().strip() else settings.prompt
+    if not value.strip():
+        return
+    plan = proposed_plan(value, settings.preset)
+    profile = profile_for(plan.world_type)
+    row = layout.row()
+    row.active = False
+    row.label(
+        text=f"{profile.label} · {plan.architecture_count} buildings · {plan.prop_count} props",
+        icon="LIGHT",
+    )
 
 
 def _draw_create(layout: bpy.types.UILayout, settings) -> None:
-    steps = layout.row(align=True)
-    steps.enabled = False
-    steps.prop(settings, "workflow_step", expand=True)
+    world = _active_world(settings)
+    if settings.workflow_step == "REVIEW":
+        _draw_review(layout, settings)
+        return
+    if settings.workflow_step == "BUILT" and world is not None:
+        _draw_built(layout, settings, world)
+        return
 
-    if not settings.onboarding_complete:
-        welcome = layout.box()
-        welcome.label(text="WELCOME TO COZYVERSE", icon="FUND")
-        welcome.label(text="Build your first editable miniature in three steps.")
-        welcome.label(text="Nothing is uploaded and no credits are used.", icon="LOCKED")
-        start = welcome.column(align=True)
-        start.scale_y = 1.35
-        start.operator("cozyverse.start_onboarding", text="START GUIDED EXAMPLE", icon="PLAY")
-        start.operator("cozyverse.dismiss_onboarding", text="Use My Own Description", icon="FORWARD")
+    if not settings.onboarding_complete and icon_id("header"):
+        layout.template_icon(icon_value=icon_id("header"), scale=6.0)
+    _draw_prompt_field(layout, settings)
+    _draw_reads_as(layout, settings)
 
-    if settings.workflow_step == "DESCRIBE":
-        prompt = layout.box()
-        prompt.label(text="STEP 1 — DESCRIBE", icon="TEXT")
-        preview = prompt.box()
-        preview.label(text="CURRENT PROMPT", icon="PREVIEW_RANGE")
-        prompt_value = settings.prompt_text.as_string() if settings.prompt_text else settings.prompt
-        for line in _wrapped_lines(prompt_value, width=40, limit=4):
-            preview.label(text=line)
-        composer = prompt.column(align=True)
-        composer.scale_y = 1.25
-        composer.operator("cozyverse.prompt_composer", text="COMPOSE DETAILED PROMPT", icon="GREASEPENCIL")
-        utilities = prompt.row(align=True)
-        utilities.operator("cozyverse.paste_prompt", text="Paste", icon="PASTEDOWN")
-        utilities.operator("cozyverse.reset_prompt", text="Reset", icon="LOOP_BACK")
-        templates = prompt.box()
-        templates.label(text="QUICK START", icon="BOOKMARKS")
+    main = layout.row(align=True)
+    main.scale_y = 1.9
+    main.operator("cozyverse.conjure", text="Conjure World", icon="WORLD_DATA")
+    dice = main.row(align=True)
+    dice.scale_x = 0.55
+    dice.operator("cozyverse.surprise", text="", icon="SHADERFX")
+    hint = layout.row()
+    hint.active = False
+    hint.label(text="Dice = surprise idea (Ctrl builds it)")
+
+    style = layout.box()
+    style.label(text="Style", icon="BRUSH_DATA")
+    style.template_icon_view(settings, "preset", show_labels=True, scale=5.0, scale_popup=6.0)
+    selected = STYLE_PRESETS.get(settings.preset)
+    if selected:
+        note = style.row()
+        note.active = False
+        note.label(text=selected.description)
+
+    header, body = layout.panel("cv_create_ideas", default_closed=settings.onboarding_complete)
+    header.label(text="Start from an idea", icon="BOOKMARKS")
+    if body is not None:
         for left, right in (
             (("VILLAGE", "Village", "HOME"), ("CITY", "City", "OUTLINER_OB_MESH")),
             (("CAFE", "Cafe", "LIGHT"), ("NATURE", "Nature", "WORLD")),
             (("FANTASY", "Fantasy", "SOLO_ON"), ("RETRO_SCIFI", "Retro Sci-Fi", "ORIENTATION_GIMBAL")),
         ):
-            row = templates.row(align=True)
-            _draw_template_card(row.column(align=True), *left)
-            _draw_template_card(row.column(align=True), *right)
-        style = prompt.box()
-        style.label(text="STYLE STUDIO", icon="BRUSH_DATA")
-        style.prop(settings, "preset", text="")
-        style_icon = icon_id(f"style_{settings.preset.lower()}")
-        if style_icon:
-            style.template_icon(icon_value=style_icon, scale=11.0)
-        selected_style = STYLE_PRESETS.get(settings.preset)
-        if selected_style:
-            style.label(text=selected_style.description)
-        action = layout.column(align=True)
-        action.scale_y = 1.5
-        action.operator("cozyverse.prepare_scene_plan", text="REVIEW WORLD PLAN", icon="DOCUMENTS")
-        advanced = layout.box()
-        advanced.label(text="Long prompt?", icon="PREFERENCES")
-        advanced.operator("cozyverse.edit_multiline_prompt", text="Open Advanced Text Editor", icon="TEXT")
+            row = body.row(align=True)
+            for column, (template, label, fallback) in zip((row.column(align=True), row.column(align=True)), (left, right)):
+                card = column.box()
+                preview = icon_id(f"template_{template.lower()}")
+                if preview:
+                    card.template_icon(icon_value=preview, scale=4.2)
+                button = card.operator("cozyverse.apply_prompt_template", text=label, **({"icon_value": preview} if preview else {"icon": fallback}))
+                button.template = template
 
-    elif settings.workflow_step == "REVIEW":
-        plan = layout.box()
-        plan.label(text="STEP 2 — REVIEW PLAN", icon="DOCUMENTS")
-        plan.label(text="Edit the proposal before anything is built.")
-        plan.prop(settings, "plan_title")
-        plan.prop(settings, "plan_world_type")
-        plan.prop(settings, "plan_base_shape")
-        plan.prop(settings, "plan_camera_type")
-        contents = plan.box()
-        contents.label(text="SCENE CONTENT", icon="OUTLINER_COLLECTION")
-        grid = contents.grid_flow(row_major=True, columns=2, align=True)
-        grid.prop(settings, "plan_architecture_count")
-        grid.prop(settings, "plan_prop_count")
-        grid.prop(settings, "plan_vegetation_count")
-        grid.prop(settings, "plan_character_count")
-        contents.prop(settings, "plan_include_road")
-        style = plan.box()
-        style.label(text="VISUAL DIRECTION", icon="BRUSH_DATA")
-        style.prop(settings, "preset", text="")
-        revision = plan.box()
-        revision.label(text="SAFE REVISION PREVIEW", icon="LOCKED")
-        revision.label(text=f"Source: {settings.revision_source_world or 'New world'}")
-        metrics = revision.grid_flow(row_major=True, columns=2, align=True)
-        metrics.label(text=f"Create: {settings.revision_created}", icon="ADD")
-        metrics.label(text=f"Changed fields: {settings.revision_changed}", icon="FILE_TICK")
-        metrics.label(text=f"Delete: {settings.revision_deleted}", icon="TRASH")
-        metrics.label(text=f"Preserve: {settings.revision_skipped}", icon="LOCKED")
-        if settings.revision_protected or settings.revision_manual_edits:
-            warning = revision.box()
-            warning.label(text=f"Protected objects: {settings.revision_protected}", icon="LOCKED")
-            warning.label(text=f"Manual edits preserved: {settings.revision_manual_edits}", icon="UV_SYNC_SELECT")
-        revision.label(text="A revision creates a new version; existing objects are never deleted.", icon="INFO")
-        revision.operator("cozyverse.refresh_revision_preview", text="REFRESH PREVIEW", icon="FILE_REFRESH")
-        plan.prop(settings, "plan_approved", icon="CHECKMARK")
-        actions = layout.row(align=True)
-        actions.operator("cozyverse.cancel_revision", text="Cancel", icon="X")
-        build = actions.row(align=True)
-        build.enabled = settings.plan_approved
-        build.scale_y = 1.45
-        build.operator("cozyverse.build_approved_plan", text="BUILD NEW VERSION", icon="MOD_BUILD")
-        safety = layout.box()
-        safety.label(text="Existing worlds and manual edits will not be overwritten.", icon="LOCKED")
-        safety.label(text="LOCAL BUILD • NATIVE OBJECTS • NO COST")
+    header, body = layout.panel("cv_create_tune", default_closed=True)
+    header.label(text="Fine-tune the prompt", icon="PREFERENCES")
+    if body is not None:
+        body.operator("cozyverse.prompt_composer", text="Compose a detailed prompt", icon="GREASEPENCIL")
+        row = body.row(align=True)
+        row.operator("cozyverse.paste_prompt", text="Paste", icon="PASTEDOWN")
+        row.operator("cozyverse.reset_prompt", text="Reset", icon="LOOP_BACK")
+        body.operator("cozyverse.edit_multiline_prompt", text="Open the big text editor", icon="TEXT")
+        body.separator()
+        body.prop(settings, "review_before_build")
+        note = body.row()
+        note.active = False
+        note.label(text="Builds are always new versions.", icon="LOCKED")
 
-    else:
-        result = layout.box()
-        result.label(text="STEP 3 — WORLD READY", icon="CHECKMARK")
-        result.label(text=settings.active_world_name or "Generated world")
-        primary = result.column(align=True)
-        primary.scale_y = 1.35
-        primary.operator("cozyverse.select_world", text="SELECT & FRAME WORLD", icon="VIEWZOOM")
-        row = result.row(align=True)
+    if not settings.onboarding_complete:
+        layout.operator("cozyverse.dismiss_onboarding", text="Got it", icon="CHECKMARK")
+
+
+def _draw_review(layout: bpy.types.UILayout, settings) -> None:
+    plan = layout.box()
+    plan.label(text="Review the plan", icon="DOCUMENTS")
+    plan.prop(settings, "plan_title")
+    plan.prop(settings, "plan_world_type")
+    plan.prop(settings, "plan_base_shape")
+    plan.prop(settings, "plan_camera_type")
+    grid = plan.grid_flow(row_major=True, columns=2, align=True)
+    grid.prop(settings, "plan_architecture_count")
+    grid.prop(settings, "plan_prop_count")
+    grid.prop(settings, "plan_vegetation_count")
+    grid.prop(settings, "plan_character_count")
+    plan.prop(settings, "plan_include_road")
+    plan.template_icon_view(settings, "preset", show_labels=True, scale=5.0, scale_popup=6.0)
+    summary = layout.box()
+    summary.label(text=f"Source: {settings.revision_source_world or 'New world'}", icon="OUTLINER_COLLECTION")
+    metrics = summary.grid_flow(row_major=True, columns=2, align=True)
+    metrics.label(text=f"Create: {settings.revision_created}", icon="ADD")
+    metrics.label(text=f"Changed: {settings.revision_changed}", icon="FILE_TICK")
+    metrics.label(text=f"Delete: {settings.revision_deleted}", icon="TRASH")
+    metrics.label(text=f"Preserve: {settings.revision_skipped}", icon="LOCKED")
+    if settings.revision_protected or settings.revision_manual_edits:
+        summary.label(text=f"Protected: {settings.revision_protected}   Hand-edited, kept: {settings.revision_manual_edits}", icon="UV_SYNC_SELECT")
+    summary.operator("cozyverse.refresh_revision_preview", text="Refresh preview", icon="FILE_REFRESH")
+    layout.prop(settings, "plan_approved", icon="CHECKMARK")
+    actions = layout.row(align=True)
+    actions.operator("cozyverse.cancel_revision", text="Back", icon="BACK")
+    build = actions.row(align=True)
+    build.enabled = settings.plan_approved
+    build.scale_y = 1.6
+    build.operator("cozyverse.build_approved_plan", text="Build New Version", icon="MOD_BUILD")
+
+
+def _draw_built(layout: bpy.types.UILayout, settings, world) -> None:
+    objects = world.all_objects
+    hero = layout.box()
+    top = hero.row()
+    top.label(text=world.name, **_ico("success_world_ready", "CHECKMARK"))
+    count = top.row()
+    count.alignment = "RIGHT"
+    count.label(text=f"{len(objects)} objects")
+    style = world.get("cv_style_label")
+    if style:
+        sub = hero.row()
+        sub.active = False
+        sub.label(text=f"{world.get('cv_composition_label', 'World')} in {style}")
+
+    layout.label(text="What next?")
+    steps = layout.column(align=True)
+    steps.scale_y = 1.35
+    for tab, label, icon in (
+        ("ATMOSPHERE", "Set the mood: light, weather, time", "LIGHT_SUN"),
+        ("SHOT", "Frame a shot and render a postcard", "CAMERA_DATA"),
+        ("STORY", "Bring it to life with motion", "ACTION"),
+        ("GENERATE", "Swap in your own or generated assets", "ASSET_MANAGER"),
+    ):
+        steps.operator("cozyverse.goto_tab", text=label, icon=icon).tab = tab
+
+    again = layout.row(align=True)
+    again.scale_y = 1.3
+    again.operator("cozyverse.conjure", text="Remix Layout", icon="FILE_REFRESH").remix = True
+    again.operator("cozyverse.back_to_description", text="New Version", icon="DUPLICATE")
+    layout.operator("cozyverse.select_world", text="Select and Frame", icon="VIEWZOOM")
+
+    header, body = layout.panel("cv_built_protect", default_closed=True)
+    header.label(text="Protect and recover", icon="LOCKED")
+    if body is not None:
+        row = body.row(align=True)
         row.operator("cozyverse.lock_selected_objects", text="Protect Selected", icon="LOCKED")
         row.operator("cozyverse.inspect_manual_edits", text="Check Edits", icon="UV_SYNC_SELECT")
-        result.operator("cozyverse.create_checkpoint", text="CREATE RECOVERY CHECKPOINT", icon="RECOVER_LAST")
+        body.operator("cozyverse.create_checkpoint", text="Save a Recovery Checkpoint", icon="RECOVER_LAST")
         if settings.checkpoint_path:
-            result.label(text="Checkpoint ready in the project folder", icon="FILE_TICK")
-        next_version = layout.column(align=True)
-        next_version.operator("cozyverse.back_to_description", text="CREATE ANOTHER VERSION", icon="DUPLICATE")
-
-    if settings.operation_progress > 0:
-        progress = layout.box()
-        progress.label(text="PROGRESS", icon="SORTTIME")
-        progress.prop(settings, "operation_progress", text="")
-    if settings.last_error:
-        error = layout.box()
-        error.alert = True
-        error.label(text=settings.last_error, icon="ERROR")
-    if settings.recovery_hint:
-        recovery = layout.box()
-        recovery.label(text="NEXT STEP", icon="INFO")
-        for line in _wrapped_lines(settings.recovery_hint, width=42, limit=3):
-            recovery.label(text=line)
+            body.label(text="Checkpoint saved next to your .blend", icon="FILE_TICK")
+        note = body.row()
+        note.active = False
+        note.label(text="Hand edits are never overwritten.")
 
 
 def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
-    header = layout.box()
-    header.label(text="ATMOSPHERE LAB", icon="LIGHT_SUN")
-    header.label(text=f"Target: {settings.active_world_name or 'Build or select a world'}", icon="OUTLINER_COLLECTION")
-    header.label(text="Live, editable Blender lights • no rebuild")
-    lighting = layout.box()
-    lighting.label(text="SKY & SUN", icon="WORLD")
-    lighting.prop(settings, "atmosphere_preset", text="Look")
-    weather_preview = {
-        "FOG": "atmosphere_foggy_morning",
-        "SNOW": "atmosphere_snowy_twilight",
-    }.get(settings.weather)
-    if settings.wind_amount > 0.0:
-        weather_preview = "atmosphere_windy_day"
-    if settings.wetness_amount > 0.0:
-        weather_preview = "atmosphere_wet_night"
-    if not weather_preview and settings.season != "SUMMER":
-        weather_preview = f"season_{settings.season.lower()}"
-    atmosphere_icon = icon_id(weather_preview or f"atmosphere_{settings.atmosphere_preset.lower()}")
-    if atmosphere_icon:
-        lighting.template_icon(icon_value=atmosphere_icon, scale=11.0)
-    for prop in ("time_hour", "sun_intensity", "warmth", "ambient_intensity", "exposure"):
-        lighting.prop(settings, prop, slider=True)
-    practical = layout.box()
-    practical.label(text="PRACTICAL LIGHTS", icon="LIGHT_POINT")
-    practical.prop(settings, "practical_lights")
-    controls = practical.column(align=True)
-    controls.enabled = settings.practical_lights
-    controls.prop(settings, "interior_intensity", slider=True)
-    controls.prop(settings, "practical_temperature", slider=True)
-    controls.label(text="1,800–6,500 K • native Point lights")
-    weather = layout.box()
-    weather.label(text="WEATHER & SEASONS", icon="FORCE_WIND")
-    weather.prop(settings, "weather", expand=True)
-    rain = weather.row()
-    rain.enabled = settings.weather == "RAIN"
-    rain.prop(settings, "rain_amount", slider=True)
-    snow = weather.row()
-    snow.enabled = settings.weather == "SNOW"
-    snow.prop(settings, "snow_amount", slider=True)
-    weather.prop(settings, "fog_amount", slider=True)
-    weather.prop(settings, "wind_amount", slider=True)
-    weather.prop(settings, "wetness_amount", slider=True)
-    weather.prop(settings, "season", expand=True)
-    weather.prop(settings, "weather_quality", expand=True)
-    weather.label(text="Low quality is the fastest viewport preview", icon="INFO")
-    actions = layout.row(align=True)
-    actions.operator("cozyverse.apply_atmosphere", text="Apply to Active", icon="CHECKMARK")
-    actions.operator("cozyverse.reset_atmosphere", text="Reset", icon="LOOP_BACK")
-    persistence = layout.row(align=True)
-    persistence.operator("cozyverse.save_atmosphere_preset", text="Save Look", icon="FILE_TICK")
-    persistence.operator("cozyverse.load_atmosphere_preset", text="Load Saved", icon="IMPORT")
+    if _needs_world(layout, settings, "light and weather it"):
+        return
+    layout.template_icon_view(settings, "atmosphere_preset", show_labels=True, scale=8.0, scale_popup=6.0)
+
+    time = layout.box()
+    top = time.row()
+    top.label(text="Time of day", icon="TIME")
+    clock = top.row()
+    clock.alignment = "RIGHT"
+    clock.label(text=_clock(settings.time_hour))
+    time.prop(settings, "time_hour", text="", slider=True)
+    chips = time.row(align=True)
+    for label, hour in (("Dawn", 6.0), ("Noon", 12.0), ("Golden", 18.0), ("Night", 22.0)):
+        chips.operator("cozyverse.set_time_of_day", text=label).hour = hour
+
+    header, body = layout.panel("cv_mood_light", default_closed=False)
+    header.label(text="Sky and light", icon="WORLD")
+    if body is not None:
+        for prop in ("sun_intensity", "warmth", "ambient_intensity", "exposure"):
+            body.prop(settings, prop, slider=True)
+
+    header, body = layout.panel("cv_mood_weather", default_closed=False)
+    header.label(text="Weather and seasons", icon="FORCE_WIND")
+    if body is not None:
+        body.prop(settings, "weather", expand=True)
+        if settings.weather == "RAIN":
+            body.prop(settings, "rain_amount", slider=True)
+        if settings.weather == "SNOW":
+            body.prop(settings, "snow_amount", slider=True)
+        body.prop(settings, "fog_amount", slider=True)
+        body.prop(settings, "wind_amount", slider=True)
+        body.prop(settings, "wetness_amount", slider=True)
+        body.prop(settings, "season", expand=True)
+
+    header, body = layout.panel("cv_mood_practical", default_closed=True)
+    header.label(text="Window glow and lamps", icon="LIGHT_POINT")
+    if body is not None:
+        body.prop(settings, "practical_lights")
+        controls = body.column(align=True)
+        controls.enabled = settings.practical_lights
+        controls.prop(settings, "interior_intensity", slider=True)
+        controls.prop(settings, "practical_temperature", slider=True)
+
+    header, body = layout.panel("cv_mood_more", default_closed=True)
+    header.label(text="Save and performance", icon="FILE_TICK")
+    if body is not None:
+        row = body.row(align=True)
+        row.operator("cozyverse.save_atmosphere_preset", text="Save Look", icon="FILE_TICK")
+        row.operator("cozyverse.load_atmosphere_preset", text="Load Saved", icon="IMPORT")
+        body.operator("cozyverse.reset_atmosphere", text="Reset", icon="LOOP_BACK")
+        body.prop(settings, "weather_quality", expand=True)
+
+
+def _draw_shot(layout: bpy.types.UILayout, context: bpy.types.Context, settings) -> None:
+    if _needs_world(layout, settings, "film it"):
+        return
+    layout.label(text="Each shot is its own camera.")
+    active = context.scene.camera.get("cv_shot", "WIDE") if context.scene.camera is not None else ""
+    keys = {"WIDE": "cinematic_wide", "HERO": "cinematic_hero_medium", "DETAIL": "cinematic_detail_closeup"}
+    for identifier, label, description in SHOTS:
+        card = layout.box()
+        preview = icon_id(keys[identifier])
+        if preview:
+            card.template_icon(icon_value=preview, scale=5.5)
+        row = card.row(align=True)
+        row.scale_y = 1.3
+        button = row.operator("cozyverse.frame_shot", text=label, icon="CAMERA_DATA", depress=active == identifier)
+        button.shot = identifier
+        note = card.row()
+        note.active = False
+        note.label(text=description)
+    post = layout.column(align=True)
+    post.scale_y = 1.7
+    post.operator("cozyverse.render_postcard", text="Render Postcard", icon="RENDER_STILL")
+    note = layout.row()
+    note.active = False
+    note.label(text="Set the Mood first; it shows in renders.")
 
 
 def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
@@ -528,90 +626,49 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
     about.label(text=f"Blender {bpy.app.version_string}")
-    about.label(text="CozyVerse 0.16.0 Story Moments")
+    about.label(text="CozyVerse " + VERSION_LABEL)
 
 
-class CV_PT_Main(_CVPanel, bpy.types.Panel):
+
+def _draw_assets(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
+    for idname, label, icon, closed, function in (
+        ("cv_assets_local", "Your local assets", "ASSET_MANAGER", False, lambda box: _draw_asset_library(context, box, settings)),
+        ("cv_assets_reference", "From a reference image", "IMAGE_DATA", True, lambda box: _draw_image_to_world(box, settings)),
+        ("cv_assets_factory", "3D asset factory", "MESH_ICOSPHERE", True, lambda box: _draw_generate(context, box, settings)),
+    ):
+        header, body = layout.panel(idname, default_closed=closed)
+        header.label(text=label, icon=icon)
+        if body is not None:
+            function(body)
+
+
+class CV_PT_Main(bpy.types.Panel):
     bl_idname = "CV_PT_main"
-    bl_label = "CozyVerse Builder"
+    bl_label = "CozyVerse"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "CozyVerse"
 
     def draw(self, context: bpy.types.Context) -> None:
-        _draw_header(self.layout, context.scene.cozyverse)
-
-
-class _CVChildPanel(_CVPanel):
-    bl_parent_id = "CV_PT_main"
-
-
-class CV_PT_Create(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_create"
-    bl_label = "Create World"
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_create(self.layout, context.scene.cozyverse)
-
-
-class CV_PT_Atmosphere(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_atmosphere"
-    bl_label = "Atmosphere Lab"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_atmosphere(self.layout, context.scene.cozyverse)
-
-
-class CV_PT_Story(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_story"
-    bl_label = "Story Moments"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_story(self.layout, context.scene.cozyverse)
-
-
-class CV_PT_AssetLibrary(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_asset_library"
-    bl_label = "Asset Match & Placement"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_asset_library(context, self.layout, context.scene.cozyverse)
-
-
-class CV_PT_ImageToWorld(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_image_to_world"
-    bl_label = "Image to World"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_image_to_world(self.layout, context.scene.cozyverse)
-
-
-class CV_PT_Generate(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_generate"
-    bl_label = "3D Asset Factory"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_generate(context, self.layout, context.scene.cozyverse)
-
-
-class CV_PT_Activity(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_activity"
-    bl_label = "Activity & Safety"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_activity(self.layout, context.scene.cozyverse)
-
-
-class CV_PT_Settings(_CVChildPanel, bpy.types.Panel):
-    bl_idname = "CV_PT_settings"
-    bl_label = "Connections & Settings"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: bpy.types.Context) -> None:
-        _draw_settings(context, self.layout)
+        layout = self.layout
+        settings = context.scene.cozyverse
+        _draw_header(layout, context, settings)
+        tab = settings.active_tab
+        if tab == "CREATE":
+            _draw_create(layout, settings)
+        elif tab == "ATMOSPHERE":
+            _draw_atmosphere(layout, settings)
+        elif tab == "SHOT":
+            _draw_shot(layout, context, settings)
+        elif tab == "STORY":
+            if not _needs_world(layout, settings, "animate it"):
+                _draw_story(layout, settings)
+        elif tab == "GENERATE":
+            _draw_assets(context, layout, settings)
+        elif tab == "ACTIVITY":
+            _draw_activity(layout, settings)
+        else:
+            _draw_settings(context, layout)
 
 
 class CV_TEXT_PT_Prompt(bpy.types.Panel):
@@ -633,7 +690,9 @@ class CV_TEXT_PT_Prompt(bpy.types.Panel):
         layout.label(text="Then choose Build Editable World.", icon="INFO")
 
 
-_CLASSES = (CV_PT_Main, CV_PT_Create, CV_PT_AssetLibrary, CV_PT_ImageToWorld, CV_PT_Atmosphere, CV_PT_Story, CV_PT_Generate, CV_PT_Activity, CV_PT_Settings, CV_TEXT_PT_Prompt)
+
+
+_CLASSES = (CV_PT_Main, CV_TEXT_PT_Prompt)
 
 
 def register() -> None:
