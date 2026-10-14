@@ -290,21 +290,39 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     for label, hour in (("Dawn", 6.0), ("Noon", 12.0), ("Golden", 18.0), ("Night", 22.0)):
         chips.operator("cozyverse.set_time_of_day", text=label).hour = hour
 
+    sky = layout.box()
+    sky.label(text="Sky and weather", icon="WORLD")
+    sky.prop(settings, "weather", expand=True)
+    if settings.weather == "RAIN":
+        sky.prop(settings, "rain_amount", slider=True)
+    if settings.weather == "SNOW":
+        sky.prop(settings, "snow_amount", slider=True)
+    sky.prop(settings, "stars_amount", slider=True)
+    sky.prop(settings, "fog_amount", slider=True)
+
+    header, body = layout.panel("cv_mood_daycycle", default_closed=True)
+    header.label(text="Animate a day", icon="TIME")
+    if body is not None:
+        if bpy.context.scene.get("cv_daycycle"):
+            body.label(text="The sky runs through a full day. Press Space.", icon="CHECKMARK")
+            body.operator("cozyverse.daycycle_remove", text="Remove Day Cycle", icon="X")
+        else:
+            body.prop(settings, "daycycle_seconds")
+            body.operator("cozyverse.daycycle_add", text="Animate a Day", icon="PLAY")
+
+    layout.prop(settings, "ui_advanced", toggle=True, icon="PREFERENCES")
+    if not settings.ui_advanced:
+        return
+
     header, body = layout.panel("cv_mood_light", default_closed=False)
-    header.label(text="Sky and light", icon="WORLD")
+    header.label(text="Sun and light", icon="LIGHT_SUN")
     if body is not None:
         for prop in ("sun_intensity", "warmth", "ambient_intensity", "exposure"):
             body.prop(settings, prop, slider=True)
 
     header, body = layout.panel("cv_mood_weather", default_closed=False)
-    header.label(text="Weather and seasons", icon="FORCE_WIND")
+    header.label(text="Wind, wetness and seasons", icon="FORCE_WIND")
     if body is not None:
-        body.prop(settings, "weather", expand=True)
-        if settings.weather == "RAIN":
-            body.prop(settings, "rain_amount", slider=True)
-        if settings.weather == "SNOW":
-            body.prop(settings, "snow_amount", slider=True)
-        body.prop(settings, "fog_amount", slider=True)
         body.prop(settings, "wind_amount", slider=True)
         body.prop(settings, "wetness_amount", slider=True)
         body.prop(settings, "season", expand=True)

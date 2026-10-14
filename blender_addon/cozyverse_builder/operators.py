@@ -171,6 +171,11 @@ def _log_activity(context: bpy.types.Context, level: str, message: str) -> None:
         settings.activity_log.remove(0)
 
 
+def _atmosphere_owned(obj) -> bool:
+    """Objects the Mood tab moves or rescales on purpose (sun, rain, snow, wind, fog) are never hand edits."""
+    return bool(obj.get("cv_weather")) or obj.name.startswith("CV_Sun")
+
+
 def _manual_state(world) -> tuple[int, int]:
     protected = 0
     edited = 0
@@ -178,7 +183,7 @@ def _manual_state(world) -> tuple[int, int]:
         protected += bool(obj.get("cv_locked"))
         baseline = obj.get("cv_generated_transform")
         current = json.dumps([round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)])
-        edited += bool(baseline and baseline != current)
+        edited += bool(baseline and baseline != current and not _atmosphere_owned(obj))
     return protected, edited
 
 
@@ -741,7 +746,7 @@ class CV_OT_InspectManualEdits(bpy.types.Operator):
             locked += bool(obj.get("cv_locked"))
             baseline = obj.get("cv_generated_transform")
             current = json.dumps([round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)])
-            edited += bool(baseline and baseline != current)
+            edited += bool(baseline and baseline != current and not _atmosphere_owned(obj))
         settings.status = f"Manual-edit check: {edited} changed, {locked} locked; rebuilds create new versions"
         settings.recovery_hint = "Edited and locked objects remain untouched because CozyVerse never overwrites an existing world."
         return {"FINISHED"}

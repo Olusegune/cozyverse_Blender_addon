@@ -34,6 +34,10 @@ PRESETS = {
     "MISTY_DAWN": AtmosphereValues(6.5, 32.0, 58.0, 42.0, 35.0, "CLEAR", 0.0, 0.35, 3000.0),
     "BRIGHT_DAY": AtmosphereValues(12.0, 72.0, 42.0, 55.0, 0.0, "CLEAR", 0.0, -0.1, 4000.0, False),
     "BLUE_HOUR": AtmosphereValues(20.0, 18.0, 24.0, 24.0, 82.0, "CLEAR", 0.0, 0.65, 2600.0),
+    "STARRY_NIGHT": AtmosphereValues(1.0, 8.0, 12.0, 12.0, 85.0, "CLEAR", 0.0, 0.9, 2800.0),
+    "SUNSET_GLOW": AtmosphereValues(17.6, 65.0, 100.0, 30.0, 60.0, "CLEAR", 0.0, 0.2, 2300.0),
+    "OVERCAST": AtmosphereValues(13.0, 20.0, 30.0, 64.0, 25.0, "CLEAR", 0.0, 0.1, 4200.0, True, 22.0),
+    "FIRST_SNOW": AtmosphereValues(16.0, 32.0, 28.0, 50.0, 78.0, "SNOW", 0.0, 0.3, 2800.0, True, 12.0, 8.0, 0.0, 55.0, "WINTER"),
 }
 
 
@@ -50,6 +54,31 @@ def sun_elevation_degrees(time_hour: float) -> float:
 
 def sun_azimuth_degrees(time_hour: float) -> float:
     return (clamp(time_hour, 0.0, 24.0) / 24.0) * 360.0 - 90.0
+
+
+def _mix(first: tuple[float, ...], second: tuple[float, ...], amount: float) -> tuple[float, ...]:
+    return tuple(a + (b - a) * amount for a, b in zip(first, second))
+
+
+def night_factor(time_hour: float) -> float:
+    """1.0 once the sun is well below the horizon, fading to 0.0 shortly after sunrise."""
+    return clamp((2.0 - sun_elevation_degrees(time_hour)) / 10.0, 0.0, 1.0)
+
+
+def sky_colors(time_hour: float, warmth: float) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """(horizon, zenith) sky colors: deep blue night, pale day, a warm glow around sunrise and sunset."""
+    elevation = sun_elevation_degrees(time_hour)
+    daylight = clamp((elevation + 8.0) / 66.0, 0.0, 1.0) ** 0.8
+    horizon = _mix((0.03, 0.05, 0.14), (0.62, 0.76, 0.95), daylight)
+    zenith = _mix((0.004, 0.008, 0.04), (0.20, 0.43, 0.84), daylight)
+    glow = clamp(1.0 - abs(elevation - 6.0) / 16.0, 0.0, 1.0) * (clamp(warmth, 0.0, 100.0) / 100.0)
+    return _mix(horizon, (0.98, 0.50, 0.28), glow * 0.7), _mix(zenith, (0.45, 0.25, 0.40), glow * 0.25)
+
+
+def star_visibility(time_hour: float, stars_amount: float, weather: str, fog_amount: float) -> float:
+    """How strongly stars show: only at night, dimmed by fog and hidden behind rain or snow clouds."""
+    clouds = 0.12 if weather in {"RAIN", "SNOW"} else 1.0
+    return night_factor(time_hour) * clamp(stars_amount, 0.0, 100.0) / 100.0 * (1.0 - clamp(fog_amount, 0.0, 100.0) / 100.0 * 0.85) * clouds
 
 
 def warmth_rgb(warmth: float) -> tuple[float, float, float]:

@@ -2,6 +2,15 @@
 
 ## 0.17.0 Magic Flow
 
+- **Library** (Assets tab): add any number of model folders (`.blend`, `.glb`, `.gltf`, `.fbx`, `.obj`, plus Blender asset libraries). A thumbnail browser with search, role filter and paging, a larger popup view, and per-model Role, Licence, Front and "flatten to clay colors" settings that persist between projects. Place any model standing on the ground at a size that suits its role, and use one as your car: cars on the road switch to it, with a built-in fallback. Editorial-only models warn you before you render.
+- **Ten cinematic looks** (Golden Hour, Rainy Cafe, Moonlit, Misty Dawn, Bright Day, Blue Hour, plus Starry Night, Sunset Glow, Overcast and First Snow), each one click.
+- **A real sky**: a horizon-to-zenith gradient that follows the time of day and a warm sunset glow, procedural **stars** on clear nights (hidden by rain, snow and fog), and a camera-only bright sky so renders look vivid while the lighting stays soft. The viewport now shows this sky in Material Preview.
+- **Animate a Day**: one click keyframes a seamless day-to-night loop; the sun, sky, stars and window glow follow the timeline.
+- **Simple and Advanced Mood tab**: the essentials up front (look, time of day, weather, stars), everything else behind one switch.
+- Fixed: fog above zero used to black out the whole sky. Fog is now a soft box of mist around the stage that leaves the sky alone.
+- Fixed: moving the sun or rescaling the weather previews no longer counts as a hand edit.
+- Added tests: library, sky, and the pure atmosphere maths.
+
 - **Cars** (Motion tab > Cars and trains): low-poly cars with wheels, hubs, glass and glowing headlights drive both lanes of the world road in your style's colors, looping forever and popping in and out at the road ends. Choose 1 to 4 cars and the trip time.
 - **Train and station**: a locomotive with up to two carriages rolls out of a tunnel portal, eases into a small station with a canopy and lamp, waits, then leaves through the other tunnel. The track, sleepers, rails, platform and tunnels are all editable geometry along the front edge of the stage.
 - Vehicle motion is simple-expression drivers on a root empty (`cv_period` frames per trip, `cv_phase` offset, both editable in Custom Properties), so it loops on any frame range, needs no add-on to play, and never counts as a hand edit. Cars need a road; a railway works in any world. Rebuild replaces, Remove leaves nothing behind. Build-up animation includes them.

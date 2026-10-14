@@ -54,6 +54,10 @@ _LOOK_PREVIEWS = {
     "BRIGHT_DAY": ("season_summer", "LIGHT_SUN"),
     "BLUE_HOUR": ("atmosphere_wet_night", "LIGHT_POINT"),
     "CUSTOM": ("", "OPTIONS"),
+    "STARRY_NIGHT": ("atmosphere_moonlit", "SHADING_RENDERED"),
+    "SUNSET_GLOW": ("atmosphere_golden_hour", "LIGHT_SUN"),
+    "OVERCAST": ("atmosphere_foggy_morning", "OUTLINER_OB_LIGHT"),
+    "FIRST_SNOW": ("atmosphere_snowy_twilight", "FREEZE"),
 }
 
 
@@ -75,6 +79,10 @@ def _look_items_with_previews(_self, _context):
         ("BRIGHT_DAY", "Bright Day", "Clean daylight with practical lights off"),
         ("BLUE_HOUR", "Blue Hour", "Cool twilight with warm practical lights"),
         ("CUSTOM", "Custom", "Current custom values"),
+        ("STARRY_NIGHT", "Starry Night", "A clear sky full of stars"),
+        ("SUNSET_GLOW", "Sunset Glow", "A deep orange horizon"),
+        ("OVERCAST", "Overcast", "Soft grey, even light"),
+        ("FIRST_SNOW", "First Snow", "Gentle snowfall at dusk"),
     )
     items = []
     for index, (identifier, label, description) in enumerate(base):
@@ -310,6 +318,9 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         default="CENTER",
     )
     buildup_seconds: FloatProperty(name="Length", description="How long the assembly takes", default=4.0, min=1.0, max=30.0, unit="TIME_ABSOLUTE")
+    stars_amount: FloatProperty(name="Stars", description="How many stars show on a clear night", default=70.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
+    ui_advanced: BoolProperty(name="Advanced controls", description="Show every lighting, weather and season control", default=False)
+    daycycle_seconds: FloatProperty(name="Length", description="How long one full day and night takes", default=12.0, min=2.0, max=120.0, unit="TIME_ABSOLUTE")
     library_query: StringProperty(name="Search", default="", update=_reset_library_page)
     library_role: EnumProperty(
         name="Role",

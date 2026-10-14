@@ -178,9 +178,11 @@ try:
     # ---- rescan and removal ---------------------------------------------------
     assert bpy.ops.cozyverse.library_rescan() == {"FINISHED"}
     names = {r["name"] for r in library.effective_records()}
-    assert "Sedan" not in names and "moved" in names or "Sedan" not in names  # the moved file is now a whole-file entry
+    moved = [r for r in library.effective_records() if r["name"] == "Sedan"]
+    assert len(moved) == 1 and moved[0]["path"].endswith("moved.blend")  # the renamed file is still found, once
     assert bpy.ops.cozyverse.library_remove_source(source=source_id) == {"FINISHED"}
-    assert library.state()["index"] == [] and library.state()["sources"] == []
+    assert not [r for r in library.state()["index"] if r["source"] == source_id]
+    assert source_id not in {src["id"] for src in library.state()["sources"]}
     assert bpy.ops.cozyverse.library_browser.poll()
 finally:
     addon.unregister()

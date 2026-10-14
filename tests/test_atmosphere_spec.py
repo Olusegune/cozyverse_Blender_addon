@@ -5,7 +5,11 @@ import unittest
 from blender_addon.cozyverse_builder.core.atmosphere_spec import (
     AtmosphereValues,
     deserialize_preset,
+    PRESETS,
     kelvin_rgb,
+    night_factor,
+    sky_colors,
+    star_visibility,
     serialize_preset,
     sun_azimuth_degrees,
     sun_elevation_degrees,
@@ -52,6 +56,29 @@ class AtmosphereSpecTests(unittest.TestCase):
         payload = '{"schema_version":"1.0","time_hour":1,"sun_intensity":1,"warmth":1,"ambient_intensity":1,"interior_intensity":1,"weather":"TORNADO","rain_amount":1}'
         with self.assertRaisesRegex(ValueError, "weather"):
             deserialize_preset(payload)
+
+    def test_ten_looks_all_validate_and_round_trip(self) -> None:
+        self.assertEqual(len(PRESETS), 10)
+        for values in PRESETS.values():
+            self.assertEqual(deserialize_preset(serialize_preset(values)), values)
+
+    def test_sky_is_dark_at_night_pale_by_day_and_warm_at_sunset(self) -> None:
+        night_h, night_z = sky_colors(1.0, 50.0)
+        day_h, day_z = sky_colors(12.0, 50.0)
+        self.assertGreater(sum(day_h), sum(night_h) * 3)
+        self.assertGreater(sum(day_z), sum(night_z) * 5)
+        sunset_h, _ = sky_colors(17.6, 100.0)
+        self.assertGreater(sunset_h[0], sunset_h[2])  # red beats blue at the horizon
+
+    def test_stars_only_at_night_and_hidden_by_weather(self) -> None:
+        self.assertEqual(night_factor(12.0), 0.0)
+        self.assertEqual(night_factor(1.0), 1.0)
+        self.assertEqual(star_visibility(12.0, 100.0, "CLEAR", 0.0), 0.0)
+        clear = star_visibility(1.0, 70.0, "CLEAR", 0.0)
+        self.assertAlmostEqual(clear, 0.7)
+        self.assertLess(star_visibility(1.0, 70.0, "RAIN", 0.0), clear * 0.2)
+        self.assertLess(star_visibility(1.0, 70.0, "CLEAR", 100.0), clear * 0.2)
+        self.assertEqual(star_visibility(1.0, 0.0, "CLEAR", 0.0), 0.0)
 
 
 if __name__ == "__main__":

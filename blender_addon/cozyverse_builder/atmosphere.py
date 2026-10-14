@@ -8,7 +8,7 @@ import random
 import bpy
 
 from .materials import sync_color, sync_glow, sync_roughness
-from .core.atmosphere_spec import AtmosphereValues, kelvin_rgb, serialize_preset, sun_azimuth_degrees, sun_elevation_degrees, warmth_rgb
+from .core.atmosphere_spec import AtmosphereValues, sky_colors, star_visibility, kelvin_rgb, serialize_preset, sun_azimuth_degrees, sun_elevation_degrees, warmth_rgb
 
 
 SUN_NAME = "CV_Sun"
@@ -43,18 +43,126 @@ def _set_precipitation_density(obj: bpy.types.Object, kind: str, quality: str) -
     obj["cv_particle_count"] = count
 
 
-def _mix(a, b, t):
-    return tuple(x + (y - x) * t for x, y in zip(a, b))
+def _ensure_sky_nodes(world: bpy.types.World, background) -> dict:
+    """Build (once) the horizon-to-zenith gradient and procedural stars feeding the world's Background."""
+    nodes = world.node_tree.nodes
+    links = world.node_tree.links
+    if nodes.get("CV Sky Gradient") is None:
+        coord = nodes.new("ShaderNodeTexCoord")
+        coord.name = "CV Sky Coord"
+        separate = nodes.new("ShaderNodeSeparateXYZ")
+        separate.name = "CV Sky Separate"
+        height = nodes.new("ShaderNodeMapRange")
+        height.name = "CV Sky Height"
+        height.inputs["From Min"].default_value = 0.0
+        height.inputs["From Max"].default_value = 0.75
+        gradient = nodes.new("ShaderNodeMix")
+        gradient.name = "CV Sky Gradient"
+        gradient.data_type = "RGBA"
+        voronoi = nodes.new("ShaderNodeTexVoronoi")
+        voronoi.name = "CV Sky Star Field"
+        voronoi.voronoi_dimensions = "3D"
+        voronoi.feature = "F1"
+        voronoi.inputs["Scale"].default_value = 70.0
+        mask = nodes.new("ShaderNodeMapRange")
+        mask.name = "CV Sky Star Mask"
+        mask.inputs["From Min"].default_value = 0.0
+        mask.inputs["From Max"].default_value = 0.06
+        mask.inputs["To Min"].default_value = 1.0
+        mask.inputs["To Max"].default_value = 0.0
+        visible = nodes.new("ShaderNodeMath")
+        visible.name = "CV Sky Star Visible"
+        visible.operation = "MULTIPLY"
+        stars = nodes.new("ShaderNodeMix")
+        stars.name = "CV Sky Stars"
+        stars.data_type = "RGBA"
+        stars.inputs[7].default_value = (6.0, 6.0, 7.0, 1.0)
+        links.new(coord.outputs["Generated"], separate.inputs["Vector"])
+        links.new(separate.outputs["Z"], height.inputs["Value"])
+        links.new(height.outputs["Result"], gradient.inputs[0])
+        links.new(coord.outputs["Generated"], voronoi.inputs["Vector"])
+        links.new(voronoi.outputs["Distance"], mask.inputs["Value"])
+        links.new(mask.outputs["Result"], visible.inputs[0])
+        links.new(visible.outputs["Value"], stars.inputs[0])
+        links.new(gradient.outputs[2], stars.inputs[6])
+        links.new(stars.outputs[2], background.inputs["Color"])
+        # Camera rays see a bright, saturated sky; everything else gets the softer ambient light.
+        output = nodes.get("World Output")
+        if output is not None:
+            light_path = nodes.new("ShaderNodeLightPath")
+            light_path.name = "CV Sky Light Path"
+            seen = nodes.new("ShaderNodeBackground")
+            seen.name = "CV Sky Camera"
+            seen.inputs["Strength"].default_value = 1.0
+            blend = nodes.new("ShaderNodeMixShader")
+            blend.name = "CV Sky Mix"
+            links.new(stars.outputs[2], seen.inputs["Color"])
+            links.new(light_path.outputs["Is Camera Ray"], blend.inputs[0])
+            links.new(background.outputs["Background"], blend.inputs[1])
+            links.new(seen.outputs["Background"], blend.inputs[2])
+            links.new(blend.outputs["Shader"], output.inputs["Surface"])
+    return {"gradient": nodes["CV Sky Gradient"], "visible": nodes["CV Sky Star Visible"]}
 
 
-def _sky_color(settings) -> tuple[float, float, float, float]:
-    """Soft time-of-day backdrop: deep blue night, pale day, warm glow near the horizon."""
-    elevation = sun_elevation_degrees(settings.time_hour)
-    daylight = max(0.0, min(1.0, (elevation + 8.0) / 66.0)) ** 0.8
-    sky = _mix((0.02, 0.035, 0.11), (0.46, 0.64, 0.90), daylight)
-    glow = max(0.0, 1.0 - abs(elevation - 6.0) / 16.0) * (settings.warmth / 100.0)
-    sky = _mix(sky, (0.95, 0.52, 0.30), glow * 0.55)
-    return (*sky, 1.0)
+FOG_NAME = "CV_Fog_Volume"
+
+
+def _ensure_fog_volume(world_collection: bpy.types.Collection) -> bpy.types.Object:
+    """A soft box of mist around the stage. Unlike a world volume it never swallows the sky."""
+    existing = next((obj for obj in world_collection.all_objects if obj.name.startswith(FOG_NAME)), None)
+    if existing is not None:
+        return existing
+    holder = next((child for child in world_collection.children if child.name.startswith("CV_ATMOSPHERE")), world_collection)
+    mesh = bpy.data.meshes.new(f"{FOG_NAME}_Mesh")
+    mesh.from_pydata(
+        [(x, y, z) for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)],
+        [],
+        [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)],
+    )
+    mesh.update()
+    material = bpy.data.materials.new("CV_Mat_Fog")
+    material.use_nodes = True
+    material.node_tree.nodes.clear()
+    output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+    volume = material.node_tree.nodes.new("ShaderNodeVolumePrincipled")
+    volume.name = "CV Fog Volume"
+    material.node_tree.links.new(volume.outputs["Volume"], output.inputs["Volume"])
+    mesh.materials.append(material)
+    obj = bpy.data.objects.new(FOG_NAME, mesh)
+    obj.scale = (9.0, 7.0, 4.0)
+    obj.location = (0.0, 0.0, 3.0)
+    obj.display_type = "WIRE"
+    holder.objects.link(obj)
+    obj["cv_managed"] = True
+    obj["cv_demo"] = True
+    obj["cv_locked"] = False
+    obj["cv_weather"] = "FOG"
+    obj["cv_world_root"] = world_collection.name
+    return obj
+
+
+def _apply_fog(world: bpy.types.World, world_collection, density: float) -> None:
+    output = world.node_tree.nodes.get("World Output") if world.node_tree else None
+    if output is not None:  # older worlds had an infinite fog volume that blacked out the sky
+        for link in list(output.inputs["Volume"].links):
+            world.node_tree.links.remove(link)
+    if world_collection is None or not world_collection.get("cv_managed"):
+        return
+    fog = _ensure_fog_volume(world_collection)
+    fog.hide_viewport = fog.hide_render = density <= 0.0
+    for material in fog.data.materials:
+        node = material.node_tree.nodes.get("CV Fog Volume") if material and material.node_tree else None
+        if node is not None:
+            node.inputs["Density"].default_value = density
+    fog["cv_fog_density"] = density
+
+
+def _apply_sky(world: bpy.types.World, background, settings) -> None:
+    sky = _ensure_sky_nodes(world, background)
+    horizon, zenith = sky_colors(settings.time_hour, settings.warmth)
+    sky["gradient"].inputs[6].default_value = (*horizon, 1.0)
+    sky["gradient"].inputs[7].default_value = (*zenith, 1.0)
+    sky["visible"].inputs[1].default_value = star_visibility(settings.time_hour, settings.stars_amount, settings.weather, settings.fog_amount)
 
 
 def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
@@ -92,19 +200,12 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
     if background is not None:
         ambient = settings.ambient_intensity / 100.0
         background.inputs["Strength"].default_value = 0.03 + ambient * 0.55
-        background.inputs["Color"].default_value = _sky_color(settings)
+        _apply_sky(world, background, settings)
         changed = True
 
     if world.node_tree is not None:
-        output = world.node_tree.nodes.get("World Output")
-        fog = world.node_tree.nodes.get("CV Fog")
-        if fog is None:
-            fog = world.node_tree.nodes.new("ShaderNodeVolumePrincipled")
-            fog.name = "CV Fog"
-        density = settings.fog_amount / 100.0 * 0.045 if settings.weather == "FOG" or settings.fog_amount > 0.0 else 0.0
-        fog.inputs["Density"].default_value = density
-        if output is not None and not output.inputs["Volume"].is_linked:
-            world.node_tree.links.new(fog.outputs["Volume"], output.inputs["Volume"])
+        density = settings.fog_amount / 100.0 * 0.30 if settings.weather == "FOG" or settings.fog_amount > 0.0 else 0.0
+        _apply_fog(world, world_collection, density)
 
     for obj in bpy.data.objects:
         if (

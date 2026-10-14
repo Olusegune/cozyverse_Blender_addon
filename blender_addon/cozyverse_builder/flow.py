@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import random
 import time
@@ -60,6 +61,9 @@ def _present_world(context: bpy.types.Context, world: bpy.types.Collection) -> N
     if space is not None:
         if space.shading.type == "SOLID":
             space.shading.type = "MATERIAL"
+        if space.shading.type in {"MATERIAL", "RENDERED"}:
+            space.shading.use_scene_world = True  # see the sky and its stars, not a studio HDRI
+            space.shading.use_scene_lights = True
         region = space.region_3d
         if region is not None and region.view_perspective == "CAMERA":
             region.view_perspective = "PERSP"
@@ -487,6 +491,66 @@ class CV_OT_SetLook(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CV_OT_DayCycleAdd(bpy.types.Operator):
+    bl_idname = "cozyverse.daycycle_add"
+    bl_label = "Animate a Day"
+    bl_description = "Keyframe the time of day so the sky, sun, stars and window glow run through a full day and night on a seamless loop"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        scene = context.scene
+        if not settings.active_world_name:
+            self.report({"WARNING"}, "Conjure or select a world first")
+            return {"CANCELLED"}
+        _clear_daycycle(scene, settings)
+        frames = max(24, int(round(settings.daycycle_seconds * scene.render.fps)))
+        settings.atmosphere_preset = "CUSTOM"
+        edit = context.preferences.edit
+        previous = edit.keyframe_new_interpolation_type
+        edit.keyframe_new_interpolation_type = "LINEAR"
+        try:
+            for frame, hour in ((1, 0.0), (frames + 1, 24.0)):
+                settings.time_hour = hour
+                settings.keyframe_insert(data_path="time_hour", frame=frame, group="CozyVerse Day Cycle")
+        finally:
+            edit.keyframe_new_interpolation_type = previous
+        scene["cv_daycycle"] = json.dumps({"frames": [1, frames + 1], "start": scene.frame_start, "end": scene.frame_end})
+        scene.frame_start, scene.frame_end = 1, frames
+        scene.frame_set(1)
+        settings.status = f"A full day in {settings.daycycle_seconds:.0f}s. Press Space to watch it"
+        _log_activity(context, "DAYCYCLE", f"Added a {frames}-frame day cycle")
+        return {"FINISHED"}
+
+
+def _clear_daycycle(scene, settings) -> bool:
+    raw = scene.get("cv_daycycle")
+    if not raw:
+        return False
+    info = json.loads(raw)
+    for frame in info["frames"]:
+        try:
+            settings.keyframe_delete(data_path="time_hour", frame=frame)
+        except RuntimeError:
+            pass
+    scene.frame_start, scene.frame_end = int(info["start"]), int(info["end"])
+    del scene["cv_daycycle"]
+    return True
+
+
+class CV_OT_DayCycleRemove(bpy.types.Operator):
+    bl_idname = "cozyverse.daycycle_remove"
+    bl_label = "Remove Day Cycle"
+    bl_description = "Remove the day animation and keep the current time of day"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: bpy.types.Context):
+        if not _clear_daycycle(context.scene, context.scene.cozyverse):
+            return {"CANCELLED"}
+        context.scene.cozyverse.status = "Day cycle removed"
+        return {"FINISHED"}
+
+
 class CV_OT_RenderPostcard(bpy.types.Operator):
     bl_idname = "cozyverse.render_postcard"
     bl_label = "Render Postcard"
@@ -519,13 +583,24 @@ class CV_OT_RenderPostcard(bpy.types.Operator):
         return bpy.ops.render.render("INVOKE_DEFAULT")
 
 
+@bpy.app.handlers.persistent
+def _daycycle_frame_change(scene, _depsgraph=None) -> None:
+    """Animated properties skip their update callbacks, so a day cycle re-applies the sky on every frame."""
+    if scene.get("cv_daycycle") and hasattr(scene, "cozyverse"):
+        from .atmosphere import apply_atmosphere
+
+        apply_atmosphere(scene, scene.cozyverse)
+
+
 _KEYMAPS: list = []
-_CLASSES = (CV_OT_Conjure, CV_OT_Surprise, CV_OT_QuickConjure, CV_OT_RevealWorld, CV_OT_GotoTab, CV_OT_SetTimeOfDay, CV_OT_FrameShot, CV_OT_Turntable, CV_OT_ClearTurntable, CV_OT_ToggleTurntable, CV_OT_NextShot, CV_OT_SetLook, CV_OT_RenderPostcard)
+_CLASSES = (CV_OT_Conjure, CV_OT_Surprise, CV_OT_QuickConjure, CV_OT_RevealWorld, CV_OT_GotoTab, CV_OT_SetTimeOfDay, CV_OT_FrameShot, CV_OT_Turntable, CV_OT_ClearTurntable, CV_OT_ToggleTurntable, CV_OT_NextShot, CV_OT_SetLook, CV_OT_DayCycleAdd, CV_OT_DayCycleRemove, CV_OT_RenderPostcard)
 
 
 def register() -> None:
     for cls in _CLASSES:
         bpy.utils.register_class(cls)
+    if _daycycle_frame_change not in bpy.app.handlers.frame_change_post:
+        bpy.app.handlers.frame_change_post.append(_daycycle_frame_change)
     wm = bpy.context.window_manager
     keyconfig = wm.keyconfigs.addon if wm is not None else None
     if keyconfig is not None:
@@ -538,6 +613,8 @@ def register() -> None:
 
 
 def unregister() -> None:
+    if _daycycle_frame_change in bpy.app.handlers.frame_change_post:
+        bpy.app.handlers.frame_change_post.remove(_daycycle_frame_change)
     for keymap, item in _KEYMAPS:
         keymap.keymap_items.remove(item)
     _KEYMAPS.clear()

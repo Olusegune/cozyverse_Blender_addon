@@ -122,7 +122,8 @@ try:
     assert not snow.hide_viewport and len(snow.data.vertices) == 60 * 4 * 3 // 2
     settings.weather = "FOG"
     settings.fog_amount = 40.0
-    assert bpy.context.scene.world.node_tree.nodes["CV Fog"].inputs["Density"].default_value > 0.0
+    fog_volume = next(o for o in world.all_objects if o.name.startswith("CV_Fog_Volume"))
+    assert not fog_volume.hide_render and fog_volume.get("cv_fog_density", 0.0) > 0.0
     settings.wind_amount = 55.0
     assert bpy.data.objects["CV_Wind"].get("cv_wind_strength") == 55.0
     settings.wetness_amount = 70.0
