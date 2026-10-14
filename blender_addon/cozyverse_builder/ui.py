@@ -389,9 +389,21 @@ def _draw_shot(layout: bpy.types.UILayout, context: bpy.types.Context, settings)
         else:
             body.prop(settings, "turntable_frames")
             body.operator("cozyverse.turntable", text="Add Turntable", icon="ORIENTATION_GIMBAL")
+    header, body = layout.panel("cv_shot_clip", default_closed=False)
+    header.label(text="Render a clip", icon="RENDER_ANIMATION")
+    if body is not None:
+        body.prop(settings, "clip_buildup")
+        body.prop(settings, "clip_orbit")
+        body.row(align=True).prop(settings, "clip_quality", expand=True)
+        clip = body.row()
+        clip.scale_y = 1.7
+        clip.operator("cozyverse.render_clip", text="Render Clip", icon="RENDER_ANIMATION", depress=True)
+        note = body.row()
+        note.active = False
+        note.label(text="Saved as an MP4 next to your .blend.")
     post = layout.column(align=True)
     post.scale_y = 1.9
-    post.operator("cozyverse.render_postcard", text="Render Postcard", icon="RENDER_STILL", depress=True)
+    post.operator("cozyverse.render_postcard", text="Render Postcard", icon="RENDER_STILL")
     note = layout.row()
     note.active = False
     note.label(text="Set the Mood first; it shows in renders.")

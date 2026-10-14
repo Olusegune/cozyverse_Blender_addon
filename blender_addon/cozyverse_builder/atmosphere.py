@@ -34,9 +34,10 @@ def _set_precipitation_density(obj: bpy.types.Object, kind: str, quality: str) -
             width, length = 0.018, rng.uniform(0.28, 0.7)
             vertices.extend(((x - width, y, z), (x + width, y, z), (x + width - 0.11, y, z - length), (x - width - 0.11, y, z - length)))
         else:
-            size = rng.uniform(0.025, 0.065)
-            vertices.extend(((x - size, y, z), (x + size, y, z), (x + size, y, z + size * 2), (x - size, y, z + size * 2)))
-        faces.append((start, start + 1, start + 2, start + 3))
+            size = rng.uniform(0.025, 0.06)
+            # An octagon, so flakes read as soft round dots instead of little squares.
+            vertices.extend((x + math.cos(step * math.pi / 4) * size, y, z + math.sin(step * math.pi / 4) * size) for step in range(8))
+        faces.append((start, start + 1, start + 2, start + 3) if kind == "RAIN" else tuple(range(start, start + 8)))
     obj.data.clear_geometry()
     obj.data.from_pydata(vertices, [], faces)
     obj.data.update()

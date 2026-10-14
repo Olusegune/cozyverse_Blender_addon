@@ -6,12 +6,36 @@ The sidebar now includes bundled visual previews for the current style and suppo
 
 1. Install the CozyVerse ZIP through **Edit > Preferences > Get Extensions > Install from Disk**.
 2. In the 3D View, press `N` and select the **CozyVerse** tab.
-3. Expand **Create World**, choose a template or select **Compose Detailed Prompt**, and choose a style.
-4. Select **Review World Plan**, edit the proposed contents, and confirm **I reviewed this plan**.
-5. Select **Build New Version**.
-5. Open `CV_WORLD` in the Outliner and edit its meshes, lights, materials, and camera normally.
+3. Type a description (or press the dice for an idea), pick a style, and press **Conjure World**. The world is built, framed, lit and revealed in one step. Every build is a new version; nothing is ever overwritten.
+4. Follow the **What next?** buttons: set the mood, frame a shot, bring it to life, or add your own models.
 
-The current foundation build is deterministic and offline. It creates a demonstration from Blender primitives so you can evaluate the interaction without an account, API key, or paid service.
+Shortcuts in the 3D View: `Alt+W` opens a pie menu (looks, remix, shots, turntable); `Shift+Alt+W` conjures from a small popup. Both can be changed under **Preferences > Keymap**. Turn on **Review the plan first** under *Fine-tune the prompt* if you want to inspect and approve a plan before anything is built.
+
+## The workspaces
+
+The panel has one row of tabs:
+
+| Tab | What it does |
+|---|---|
+| **Create** | Describe, pick a style, conjure. After a build: remix the layout, start a new version, select and frame, protect and recover. |
+| **Mood** | Ten one-click looks, time of day, weather, clouds and stars. **Advanced controls** reveals sun, wind, wetness, seasons, lamps and saved looks. **Animate a day** keyframes a seamless day-to-night loop. |
+| **Shot** | Wide, Hero and Detail cameras (each is its own camera), a turntable orbit, **Render a clip**, and **Render Postcard**. |
+| **Motion** | **Ambient life** (swaying plants, flickering lamps), the **build-up animation**, cars and a train with a station, and Story Moments. |
+| **Assets** | Your **Library** of models with thumbnails, the classic catalog, reference images and the 3D Asset Factory. |
+| **Activity / Settings** | Versions, recovery, the activity log, connections and keys. |
+
+## What the new features do
+
+- **Sky:** a gradient that follows the time of day, a warm glow at sunset, procedural stars on clear nights, and drifting clouds. Rain and snow bring heavy cloud and hide the stars. Fog is a soft box of mist around the stage, so the sky stays visible.
+- **Build-up animation:** the diorama assembles itself in layers (stage, buildings, props, plants, characters) in *Pop*, *Rise* or *Drop* style. Move the two keys on `CV_BuildUp` to retime it; **Remove** restores everything exactly.
+- **Ambient life:** swaying plants and flickering lamps run on safe built-in expressions, so they render and survive saving. They respond to the Wind slider.
+- **Cars and train:** low-poly cars drive both lanes of a road; a train leaves a tunnel, stops at a small station, and leaves through the other tunnel. They loop forever on any frame range.
+- **Render a clip:** builds the world up while the camera orbits it, and renders an MP4 next to your `.blend` (720p or 1080p). Everything is editable keyframes, so you can retime before rendering.
+- **Library:** add any folder of `.blend`, `.glb`, `.gltf`, `.fbx` or `.obj` models (and Blender asset libraries). Models get real thumbnails, a role (Car, Tree, Street lamp, Building, Person, Prop), a licence flag, a front direction and an optional *flatten to clay colors* switch, and your choices are remembered between projects. **Place in World** stands a model on the ground at a size that suits its role. **Use as My Car** makes the cars on your road use your model, with a built-in fallback. Models marked *Editorial only* warn you before you render.
+
+## Your library and licences
+
+CozyVerse only lists and previews your files; it never runs anything inside them and strips drivers from imported objects. Set each folder's licence once (the menu next to its name) and change single models as needed. Models are never copied into the add-on, so commercial packs stay on your machine.
 
 ## Sidebar sections
 

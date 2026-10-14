@@ -2,6 +2,10 @@
 
 ## 0.17.0 Magic Flow
 
+- **Render a clip** (Shot tab): one button builds the world up while the camera orbits it and renders an MP4 next to your `.blend`, at 720p or 1080p. It reuses the editable build-up and turntable keyframes, so you can retime them first; re-rendering never stacks rigs.
+- **Real thumbnails** for the Library: selecting a model, or pressing the thumbnail button, renders a small preview with the model's true colors in a throwaway scene that leaves nothing behind. It works for `.blend`, `.glb`, `.gltf`, `.fbx` and `.obj`, and skips very large files.
+- Snow now falls as soft round flakes instead of little squares.
+- Rewrote the user guide's opening for the new tabbed workflow and documented every new feature.
 - **Library** (Assets tab): add any number of model folders (`.blend`, `.glb`, `.gltf`, `.fbx`, `.obj`, plus Blender asset libraries). A thumbnail browser with search, role filter and paging, a larger popup view, and per-model Role, Licence, Front and "flatten to clay colors" settings that persist between projects. Place any model standing on the ground at a size that suits its role, and use one as your car: cars on the road switch to it, with a built-in fallback. Editorial-only models warn you before you render.
 - **Ten cinematic looks** (Golden Hour, Rainy Cafe, Moonlit, Misty Dawn, Bright Day, Blue Hour, plus Starry Night, Sunset Glow, Overcast and First Snow), each one click.
 - **A real sky**: a horizon-to-zenith gradient that follows the time of day and a warm sunset glow, procedural **stars** on clear nights (hidden by rain, snow and fog), and a camera-only bright sky so renders look vivid while the lighting stays soft. The viewport now shows this sky in Material Preview.

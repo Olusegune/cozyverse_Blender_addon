@@ -119,7 +119,7 @@ try:
     settings.snow_amount = 60.0
     settings.weather_quality = "LOW"
     snow = bpy.data.objects["CV_Snow_Preview"]
-    assert not snow.hide_viewport and len(snow.data.vertices) == 60 * 4 * 3 // 2
+    assert not snow.hide_viewport and len(snow.data.vertices) == 90 * 8
     settings.weather = "FOG"
     settings.fog_amount = 40.0
     fog_volume = next(o for o in world.all_objects if o.name.startswith("CV_Fog_Volume"))

@@ -12,7 +12,7 @@ import math
 import re
 
 import bpy
-from bpy.props import EnumProperty
+from bpy.props import BoolProperty, EnumProperty
 
 from .life import add_driver, apply_life, clear_life
 from .operators import _log_activity
@@ -187,6 +187,8 @@ class CV_OT_BuildUpAdd(bpy.types.Operator):
     bl_description = "Make the world assemble itself over time. It is an editable timeline: move the two keys on CV_BuildUp to retime it, or Remove to undo it completely"
     bl_options = {"REGISTER", "UNDO"}
 
+    play: BoolProperty(default=True, options={"HIDDEN"})
+
     def execute(self, context: bpy.types.Context):
         settings = context.scene.cozyverse
         world = bpy.data.collections.get(settings.active_world_name)
@@ -197,7 +199,7 @@ class CV_OT_BuildUpAdd(bpy.types.Operator):
         context.scene.frame_set(1)
         settings.status = f"Build-up ready: {count} pieces over {settings.buildup_seconds:.1f}s"
         _log_activity(context, "BUILDUP", f"Added a {settings.buildup_style.lower()} build-up to {world.name}")
-        if not bpy.app.background and context.screen is not None and not context.screen.is_animation_playing:
+        if self.play and not bpy.app.background and context.screen is not None and not context.screen.is_animation_playing:
             bpy.ops.screen.animation_play()
         return {"FINISHED"}
 

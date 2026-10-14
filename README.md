@@ -2,6 +2,14 @@
 
 CozyVerse Builder is an offline-first Blender extension for creating editable stylized miniature worlds. Version 0.17.0 adds the Magic Flow: describe, press Conjure, and get a lit, framed, revealed world with guided next steps. Story Moments (0.16) remain native editable Actions and keyframes.
 
+What's new in 0.17:
+
+- one-click **Conjure World**, a dice for random ideas, **Remix Layout**, a pie menu (`Alt+W`) and a quick-conjure popup (`Shift+Alt+W`);
+- one tabbed panel (Create, Mood, Shot, Motion, Assets, Activity, Settings) with a guided "What next?";
+- ten cinematic looks, a real sky with stars and drifting clouds, soft fog, and **Animate a Day**;
+- build-up animation, ambient life, procedural cars and a train, a turntable, and **Render a clip** to MP4;
+- a **Library** of your own models with generated thumbnails, roles, licences, auto-fit and a car slot.
+
 The foundation build provides:
 
 - bundled header, style, template, atmosphere, onboarding, provider, and empty-state artwork with native Blender icon fallbacks;

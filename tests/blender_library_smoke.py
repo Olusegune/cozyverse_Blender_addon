@@ -98,6 +98,31 @@ try:
     settings.library_role = "ALL"
     assert library.view(settings)[3] == 4
 
+    # ---- real thumbnails, rendered in a throwaway scene -------------------------
+    before = (len(bpy.data.scenes), len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.materials), len(bpy.data.collections))
+    assert bpy.ops.cozyverse.library_thumbnails(scope="ALL") == {"FINISHED"}
+    for record in records.values():
+        made = library.thumb_path(record)
+        assert made.is_file() and made.stat().st_size > 300, record["name"]
+    image = bpy.data.images.load(str(library.thumb_path(records["Sedan"])))
+    assert tuple(image.size) == (192, 192)
+    alpha = list(image.pixels)[3::4]
+    assert max(alpha) > 0.9 and min(alpha) < 0.1  # a subject on a transparent background
+    pixels = list(image.pixels)
+    solid = [pixels[i : i + 3] for i in range(0, len(pixels), 4) if pixels[i + 3] > 0.9]
+    red = sum(p[0] for p in solid) / len(solid)
+    green = sum(p[1] for p in solid) / len(solid)
+    assert red > green * 1.4  # the sedan is red, and its preview shows it
+    bpy.data.images.remove(image)
+    assert before == (len(bpy.data.scenes), len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.materials), len(bpy.data.collections))  # nothing left behind
+    stamp = library.thumb_path(records["Sedan"]).stat().st_mtime_ns
+    assert bpy.ops.cozyverse.library_thumbnails(scope="ALL") == {"FINISHED"}
+    assert library.thumb_path(records["Sedan"]).stat().st_mtime_ns == stamp  # existing previews are kept
+    library.thumb_path(records["wooden crate"]).unlink()
+    assert bpy.ops.cozyverse.library_select(key=records["wooden crate"]["key"]) == {"FINISHED"}
+    assert library.thumb_path(records["wooden crate"]).is_file()  # selecting a model gives it a preview
+    assert all(isinstance(library.thumbnail_id(r), int) for r in records.values())
+
     # ---- choices persist between sessions --------------------------------------
     sedan_key = records["Sedan"]["key"]
     assert bpy.ops.cozyverse.library_select(key=sedan_key) == {"FINISHED"}

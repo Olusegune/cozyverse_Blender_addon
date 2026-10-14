@@ -9,6 +9,7 @@ are stripped, and everything lands in editable, labelled collections.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -196,12 +197,86 @@ def _previews():
     return _PREVIEWS
 
 
+def thumb_path(record: dict) -> Path:
+    folder = store_path().parent / "thumbs"
+    return folder / f"{hashlib.sha1(record['key'].encode('utf-8')).hexdigest()[:24]}.png"
+
+
+MAX_THUMB_BYTES = 120 * 1024 * 1024
+
+
+def render_thumbnail(record: dict, size: int = 192) -> Path:
+    """Render a small preview of a model in a throwaway scene, then remove everything it created."""
+    path = Path(bpy.path.abspath(record["path"]))
+    if not path.is_file():
+        raise ValueError("The file is missing")
+    if path.stat().st_size > MAX_THUMB_BYTES:
+        raise ValueError("The file is too large to preview automatically")
+    target = thumb_path(record)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    before = {name: set(getattr(bpy.data, name)) for name in ("meshes", "materials", "images", "node_groups", "cameras", "lights", "curves", "actions")}
+    scene = bpy.data.scenes.new("CV_Thumb")
+    holder = bpy.data.collections.new("CV_Thumb")
+    scene.collection.children.link(holder)
+    camera_object = None
+    try:
+        with bpy.context.temp_override(scene=scene, view_layer=scene.view_layers[0]):
+            imported = _import_blend(str(path), record.get("inner", ""), holder) if path.suffix.lower() == ".blend" else _import_external_asset(str(path), path.suffix.lower(), holder)
+            if not imported:
+                raise ValueError("Nothing was found in the file")
+            for obj in imported:  # Workbench previews use the viewport color, so mirror each shader's base color
+                for slot in obj.material_slots:
+                    if slot.material is not None:
+                        slot.material.diffuse_color = _base_color(slot.material)
+            low, high = _world_bounds(imported)
+            center = Vector(((low[0] + high[0]) / 2, (low[1] + high[1]) / 2, (low[2] + high[2]) / 2))
+            extent = max(high[0] - low[0], high[1] - low[1], high[2] - low[2], 1e-6)
+            camera = bpy.data.cameras.new("CV_Thumb")
+            camera.type = "ORTHO"
+            camera.ortho_scale = extent * 1.45
+            camera_object = bpy.data.objects.new("CV_Thumb", camera)
+            holder.objects.link(camera_object)
+            camera_object.location = center + Vector((1.0, -1.15, 0.85)).normalized() * extent * 3.0
+            camera_object.rotation_euler = (center - camera_object.location).to_track_quat("-Z", "Y").to_euler()
+            scene.camera = camera_object
+            scene.render.engine = "BLENDER_WORKBENCH"
+            scene.render.resolution_x = scene.render.resolution_y = size
+            scene.render.resolution_percentage = 100
+            scene.render.film_transparent = True
+            scene.render.image_settings.file_format = "PNG"
+            scene.render.image_settings.color_mode = "RGBA"
+            scene.display.shading.light = "STUDIO"
+            scene.display.shading.color_type = "MATERIAL"
+            scene.display.shading.show_cavity = True
+            scene.render.filepath = str(target)
+            bpy.ops.render.render(write_still=True, scene=scene.name)
+    finally:
+        for obj in list(holder.all_objects):
+            bpy.data.objects.remove(obj)
+        for child in list(holder.children):
+            bpy.data.collections.remove(child)
+        bpy.data.collections.remove(holder)
+        bpy.data.scenes.remove(scene)
+        for name, known in before.items():
+            for block in list(getattr(bpy.data, name)):
+                if block not in known and block.users == 0:
+                    getattr(bpy.data, name).remove(block)
+    return target
+
+
 def thumbnail_id(record: dict) -> int:
     """Sidecar image, the .blend's own thumbnail, or a role placeholder, in that order."""
     collection = _previews()
     key = record["key"]
     if key in _NO_THUMB:
         return icon_id(f"placeholder_{_PLACEHOLDER.get(record['role'], 'other')}")
+    made = thumb_path(record)
+    if made.is_file():
+        token = f"{key}@{made.stat().st_mtime_ns}"  # a new render gets a new key, so the preview refreshes
+        try:
+            return (collection[token] if token in collection else collection.load(token, str(made), "IMAGE")).icon_id
+        except Exception:
+            pass
     if key in collection:
         return collection[key].icon_id
     if True:
@@ -418,6 +493,7 @@ def draw_browser(layout: bpy.types.UILayout, context: bpy.types.Context, columns
     following.delta = 1
     following.reopen = large
     if not large:
+        pager.operator("cozyverse.library_thumbnails", text="", icon="RENDER_RESULT")
         pager.operator("cozyverse.library_browser", text="", icon="FULLSCREEN_ENTER")
 
 
@@ -559,6 +635,37 @@ class CV_OT_LibrarySelect(bpy.types.Operator):
             return {"CANCELLED"}
         settings.library_selected = self.key
         sync_edit_fields(settings, record)
+        if not thumb_path(record).is_file():
+            try:  # selecting a model gives it a real preview straight away
+                render_thumbnail(record)
+            except (ValueError, RuntimeError, OSError):
+                pass
+        return {"FINISHED"}
+
+
+class CV_OT_LibraryThumbnails(bpy.types.Operator):
+    bl_idname = "cozyverse.library_thumbnails"
+    bl_label = "Make Thumbnails"
+    bl_description = "Render real previews for the models on this page that do not have one. Large files are skipped"
+
+    scope: EnumProperty(items=(("PAGE", "This page", "The models shown now"), ("ALL", "Everything", "Every model in the library")), default="PAGE", options={"HIDDEN"})
+
+    def execute(self, context: bpy.types.Context):
+        settings = context.scene.cozyverse
+        records = view(settings, PAGE_SIZE)[0] if self.scope == "PAGE" else effective_records()
+        made = skipped = failed = 0
+        for record in records:
+            if thumb_path(record).is_file():
+                continue
+            try:
+                render_thumbnail(record)
+                made += 1
+            except (ValueError, RuntimeError, OSError):
+                failed += 1
+            if made + failed >= 40:
+                skipped = 1
+                break
+        settings.status = f"Thumbnails: {made} made" + (f", {failed} skipped (too large or unreadable)" if failed else "") + (" (press again for more)" if skipped else "")
         return {"FINISHED"}
 
 
@@ -680,6 +787,7 @@ _CLASSES = (
     CV_OT_LibrarySourceLicense,
     CV_OT_LibrarySelect,
     CV_OT_LibraryPage,
+    CV_OT_LibraryThumbnails,
     CV_OT_LibraryBrowser,
     CV_OT_LibraryPlace,
     CV_OT_LibraryUseAs,
