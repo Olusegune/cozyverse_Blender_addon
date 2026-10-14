@@ -299,6 +299,10 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         default="CENTER",
     )
     buildup_seconds: FloatProperty(name="Length", description="How long the assembly takes", default=4.0, min=1.0, max=30.0, unit="TIME_ABSOLUTE")
+    traffic_cars: IntProperty(name="Cars", description="How many cars drive the road", default=2, min=1, max=4)
+    traffic_seconds: FloatProperty(name="Trip time", description="Seconds for a car to cross the road", default=7.0, min=2.0, max=60.0, unit="TIME_ABSOLUTE")
+    train_cars: IntProperty(name="Carriages", description="Carriages behind the locomotive", default=2, min=1, max=2)
+    train_seconds: FloatProperty(name="Cycle time", description="Seconds for one tunnel to tunnel visit, including the station stop", default=14.0, min=4.0, max=120.0, unit="TIME_ABSOLUTE")
     turntable_frames: IntProperty(
         name="Frames per turn",
         description="Length of one full orbit; at 24 fps, 120 frames is five seconds",

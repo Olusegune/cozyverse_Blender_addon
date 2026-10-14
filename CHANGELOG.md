@@ -2,6 +2,11 @@
 
 ## 0.17.0 Magic Flow
 
+- **Cars** (Motion tab > Cars and trains): low-poly cars with wheels, hubs, glass and glowing headlights drive both lanes of the world road in your style's colors, looping forever and popping in and out at the road ends. Choose 1 to 4 cars and the trip time.
+- **Train and station**: a locomotive with up to two carriages rolls out of a tunnel portal, eases into a small station with a canopy and lamp, waits, then leaves through the other tunnel. The track, sleepers, rails, platform and tunnels are all editable geometry along the front edge of the stage.
+- Vehicle motion is simple-expression drivers on a root empty (`cv_period` frames per trip, `cv_phase` offset, both editable in Custom Properties), so it loops on any frame range, needs no add-on to play, and never counts as a hand edit. Cars need a road; a railway works in any world. Rebuild replaces, Remove leaves nothing behind. Build-up animation includes them.
+- Added tests/blender_vehicles_smoke.py.
+
 - **Ambient life** (Motion tab, on by default): foliage sways and practical lamps flicker. They are native simple-expression drivers, so no Python is ever evaluated; they render, scrub and survive save and reopen. Sway uses delta transforms, so it stacks with Story, never counts as a hand edit, and reads the Foliage sway, Lamp flicker and Wind sliders live with no rebuild. Lamps with flicker are left alone by Story's light pulse.
 - **Build-up animation** (Motion tab): the diorama assembles itself, layer by layer (stage, buildings, props, plants, characters), in Pop, Rise or Drop style, rippling from the middle or sweeping left to right. One controller carries a two-key timeline you can retime in the Dope Sheet; Remove restores every piece and the original frame range exactly. The stage always pops into place, and a postcard always renders the finished world.
 - Added tests/blender_motion_smoke.py (wind and flicker maths, build-up frames and ground anchoring for every style, Story coexistence, save and reopen, clean removal).

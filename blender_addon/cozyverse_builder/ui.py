@@ -10,6 +10,7 @@ from .core.scene_plan import proposed_plan
 from .core.style_spec import STYLE_PRESETS
 from .flow import LOOKS, SHOTS, TABS, _turntable_for
 from .motion import controller_for
+from .vehicles import railway_for, road_for, traffic_for
 from .visual_assets import icon_id
 
 VERSION_LABEL = "0.17.0 Magic Flow"
@@ -442,9 +443,44 @@ def _draw_buildup(layout: bpy.types.UILayout, settings) -> None:
         body.operator("cozyverse.buildup_remove", text="Remove Build-Up", icon="X")
 
 
+def _draw_vehicles(layout: bpy.types.UILayout, settings) -> None:
+    world = _active_world(settings)
+    header, body = layout.panel("cv_motion_vehicles", default_closed=True)
+    header.label(text="Cars and trains", icon="AUTO")
+    if body is None:
+        return
+    cars = traffic_for(world)
+    box = body.box()
+    box.label(text="Traffic", icon="AUTO")
+    if road_for(world) is None:
+        note = box.row()
+        note.active = False
+        note.label(text="This world has no road.")
+    else:
+        box.prop(settings, "traffic_cars")
+        box.prop(settings, "traffic_seconds")
+        row = box.row(align=True)
+        row.operator("cozyverse.traffic_add", text="Rebuild Cars" if cars else "Add Cars", icon="FILE_REFRESH" if cars else "ADD")
+        if cars:
+            row.operator("cozyverse.traffic_remove", text="Remove", icon="X")
+    train = railway_for(world)
+    box = body.box()
+    box.label(text="Railway", icon="ORIENTATION_GIMBAL")
+    box.prop(settings, "train_cars")
+    box.prop(settings, "train_seconds")
+    row = box.row(align=True)
+    row.operator("cozyverse.railway_add", text="Rebuild Train" if train else "Add Train", icon="FILE_REFRESH" if train else "ADD")
+    if train:
+        row.operator("cozyverse.railway_remove", text="Remove", icon="X")
+    note = body.row()
+    note.active = False
+    note.label(text="They loop forever. Press Space to play.")
+
+
 def _draw_story(layout: bpy.types.UILayout, settings) -> None:
     _draw_life(layout, settings)
     _draw_buildup(layout, settings)
+    _draw_vehicles(layout, settings)
     layout.separator()
     hero = layout.box()
     hero.label(text="STORY MOMENTS", icon_value=icon_id("icon_story_dark"))

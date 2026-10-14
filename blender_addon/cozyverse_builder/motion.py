@@ -28,8 +28,10 @@ LAYERS = (
     ("CV_PROPS", 0.42, 0.80),
     ("CV_VEGETATION", 0.50, 0.92),
     ("CV_CHARACTERS", 0.80, 1.00),
+    ("CV_RAILWAY", 0.05, 0.30),
+    ("CV_TRAFFIC", 0.82, 1.00),
 )
-PART_SUFFIX = re.compile(r"_(Roof|Window\d*|Dome|Antenna|Awning|Lantern|Trunk|Leaves|Beacon|Body|Head)$")
+PART_SUFFIX = re.compile(r"_(Roof|Window\d*[LR]?|Dome|Antenna|Awning|Lantern|Trunk|Leaves|Beacon|Body|Head|Cabin|Cab|Wheel\d+[LR]?|Hub\d|Headlight\d|Taillight\d|Chimney|Boiler|Lamp|Coupling)$")
 PART_DELAY = {"Roof": 0.035, "Dome": 0.03, "Antenna": 0.05, "Awning": 0.04, "Leaves": 0.04, "Head": 0.03, "Lantern": 0.05, "Beacon": 0.05}
 
 STYLES = (
