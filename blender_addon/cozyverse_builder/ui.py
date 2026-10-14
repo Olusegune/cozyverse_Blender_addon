@@ -9,6 +9,7 @@ from .core.composition_spec import profile_for
 from .core.scene_plan import proposed_plan
 from .core.style_spec import STYLE_PRESETS
 from .flow import LOOKS, SHOTS, TABS, _turntable_for
+from .motion import controller_for
 from .visual_assets import icon_id
 
 VERSION_LABEL = "0.17.0 Magic Flow"
@@ -397,7 +398,54 @@ def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
     note.label(text="All generated parts remain normal editable Blender data")
 
 
+def _draw_life(layout: bpy.types.UILayout, settings) -> None:
+    header, body = layout.panel("cv_motion_life", default_closed=False)
+    header.prop(settings, "life_enabled", text="Ambient life", icon="FORCE_WIND")
+    if body is not None:
+        column = body.column(align=True)
+        column.enabled = settings.life_enabled
+        column.prop(settings, "life_sway", slider=True)
+        column.prop(settings, "life_flicker", slider=True)
+        note = body.row()
+        note.active = False
+        note.label(text="Wind (Mood tab) adds to the sway.")
+        body.operator("cozyverse.life_refresh", text="Re-apply to this world", icon="FILE_REFRESH")
+
+
+def _draw_buildup(layout: bpy.types.UILayout, settings) -> None:
+    header, body = layout.panel("cv_motion_buildup", default_closed=False)
+    header.label(text="Build-up animation", icon="MOD_BUILD")
+    if body is None:
+        return
+    world = _active_world(settings)
+    controller = controller_for(world)
+    if controller is None:
+        body.prop(settings, "buildup_style", expand=True)
+        body.prop(settings, "buildup_order", text="")
+        body.prop(settings, "buildup_seconds")
+        row = body.row()
+        row.scale_y = 1.5
+        row.operator("cozyverse.buildup_add", text="Play Build-Up", icon="PLAY")
+        note = body.row()
+        note.active = False
+        note.label(text="The world assembles itself on an editable timeline.")
+    else:
+        body.label(text="Press Space to watch it.", icon="CHECKMARK")
+        row = body.row(align=True)
+        row.scale_y = 1.3
+        row.operator("cozyverse.buildup_replay", text="Replay", icon="PLAY")
+        row.operator("cozyverse.buildup_finish", text="Show Finished", icon="CHECKMARK")
+        body.operator("cozyverse.buildup_add", text="Rebuild With These Settings", icon="FILE_REFRESH")
+        body.prop(settings, "buildup_style", expand=True)
+        body.prop(settings, "buildup_order", text="")
+        body.prop(settings, "buildup_seconds")
+        body.operator("cozyverse.buildup_remove", text="Remove Build-Up", icon="X")
+
+
 def _draw_story(layout: bpy.types.UILayout, settings) -> None:
+    _draw_life(layout, settings)
+    _draw_buildup(layout, settings)
+    layout.separator()
     hero = layout.box()
     hero.label(text="STORY MOMENTS", icon_value=icon_id("icon_story_dark"))
     hero.label(text=f"Target: {settings.active_world_name or 'Build or select a world'}", icon="OUTLINER_COLLECTION")
@@ -433,6 +481,8 @@ def _draw_story(layout: bpy.types.UILayout, settings) -> None:
     safety = layout.box()
     safety.label(text="Native editable Actions and keyframes", icon="ACTION")
     safety.label(text="Protected or already animated objects are skipped", icon="LOCKED")
+    if settings.life_enabled:
+        safety.label(text="Flickering lamps are left to Ambient life", icon="LIGHT_POINT")
     safety.label(text="Preview never changes the scene")
 
 

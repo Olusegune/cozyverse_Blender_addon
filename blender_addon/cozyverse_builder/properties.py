@@ -83,6 +83,26 @@ def _look_items_with_previews(_self, _context):
     return items
 
 
+def _refresh_drivers(self, _context: bpy.types.Context) -> None:
+    # Drivers read these sliders through the scene; tag it so they re-evaluate immediately.
+    scene = getattr(self, "id_data", None)
+    if scene is not None:
+        scene.update_tag()
+
+
+def _update_life(self, context: bpy.types.Context) -> None:
+    from .life import apply_life, clear_life
+
+    scene = context.scene if context is not None else getattr(self, "id_data", None)
+    world = bpy.data.collections.get(self.active_world_name) if self.active_world_name else None
+    if scene is None or world is None or not world.get("cv_managed"):
+        return
+    if self.life_enabled:
+        apply_life(scene, world)
+    else:
+        clear_life(world)
+
+
 def _invalidate_story_preview(self, _context: bpy.types.Context) -> None:
     self.story_approved = False
     self.story_fingerprint = ""
@@ -256,6 +276,29 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         description="Pause after Conjure so you can adjust the plan before anything is built. Off by default: builds are always new versions and never overwrite your work",
         default=False,
     )
+    life_enabled: BoolProperty(
+        name="Ambient life",
+        description="Foliage sways with the wind and lamps flicker. Native drivers: they render, scrub and survive saving",
+        default=True,
+        update=_update_life,
+    )
+    life_sway: FloatProperty(name="Foliage sway", description="How much plants move, on top of the Wind slider in Mood", default=50.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_refresh_drivers)
+    life_flicker: FloatProperty(name="Lamp flicker", description="How much practical lights waver like candle flames", default=35.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_refresh_drivers)
+    buildup_style: EnumProperty(
+        name="Style",
+        items=(
+            ("POP", "Pop", "Each piece grows from the ground with a little overshoot"),
+            ("RISE", "Rise", "Pieces grow upward like plants"),
+            ("DROP", "Drop", "Pieces fall in and bounce once"),
+        ),
+        default="POP",
+    )
+    buildup_order: EnumProperty(
+        name="Order",
+        items=(("CENTER", "From the middle", "Ripple outward from the center"), ("SWEEP", "Left to right", "Sweep across the stage")),
+        default="CENTER",
+    )
+    buildup_seconds: FloatProperty(name="Length", description="How long the assembly takes", default=4.0, min=1.0, max=30.0, unit="TIME_ABSOLUTE")
     turntable_frames: IntProperty(
         name="Frames per turn",
         description="Length of one full orbit; at 24 fps, 120 frames is five seconds",

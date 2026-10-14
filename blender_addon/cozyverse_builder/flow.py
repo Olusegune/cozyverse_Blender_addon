@@ -497,6 +497,11 @@ class CV_OT_RenderPostcard(bpy.types.Operator):
         if scene.camera is None:
             self.report({"WARNING"}, "Conjure a world first so there is a camera")
             return {"CANCELLED"}
+        from .motion import controller_for, finish_frame
+
+        controller = controller_for(bpy.data.collections.get(context.scene.cozyverse.active_world_name))
+        if controller is not None and scene.frame_current < finish_frame(controller):
+            scene.frame_set(finish_frame(controller))  # a postcard shows the finished world, not a half-built one
         if scene.render.engine == "BLENDER_WORKBENCH":
             engines = {item.identifier for item in scene.render.bl_rna.properties["engine"].enum_items}
             scene.render.engine = "BLENDER_EEVEE" if "BLENDER_EEVEE" in engines else "BLENDER_EEVEE_NEXT"

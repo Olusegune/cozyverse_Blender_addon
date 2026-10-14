@@ -251,7 +251,14 @@ def _set_atmosphere_values(settings, values: AtmosphereValues, preset: str = "CU
 
 def _has_animation(value) -> bool:
     animation = getattr(value, "animation_data", None)
-    return bool(animation and (animation.action or animation.drivers or animation.nla_tracks))
+    if not animation:
+        return False
+    if animation.action or animation.nla_tracks:
+        return True
+    if animation.drivers:
+        # CozyVerse's own ambient-life and build-up drivers act on delta transforms and must not block Story.
+        return not (value.get("cv_life") or value.get("cv_buildup"))
+    return False
 
 
 def _story_candidates(world, preset: str):

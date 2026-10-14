@@ -112,7 +112,9 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
             and isinstance(obj.data, bpy.types.Light)
             and (not active_world or obj.get("cv_world_root") == active_world)
         ):
-            obj.data.energy = (settings.interior_intensity / 100.0) * 900.0 if settings.practical_lights else 0.0
+            target_energy = (settings.interior_intensity / 100.0) * 900.0 if settings.practical_lights else 0.0
+            obj.data["cv_base_energy"] = target_energy  # the flicker driver multiplies this
+            obj.data.energy = target_energy
             obj.data.color = kelvin_rgb(settings.practical_temperature)
             changed = True
 

@@ -7,10 +7,10 @@ _MODULES = ()
 
 def register() -> None:
     global _MODULES
-    from . import flow, operators, properties, ui, visual_assets
+    from . import flow, motion, operators, properties, ui, visual_assets
 
     visual_assets.register()
-    _MODULES = (properties, operators, flow, ui)
+    _MODULES = (properties, operators, motion, flow, ui)
     for module in _MODULES:
         module.register()
 

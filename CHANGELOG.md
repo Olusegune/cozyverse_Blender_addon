@@ -2,6 +2,10 @@
 
 ## 0.17.0 Magic Flow
 
+- **Ambient life** (Motion tab, on by default): foliage sways and practical lamps flicker. They are native simple-expression drivers, so no Python is ever evaluated; they render, scrub and survive save and reopen. Sway uses delta transforms, so it stacks with Story, never counts as a hand edit, and reads the Foliage sway, Lamp flicker and Wind sliders live with no rebuild. Lamps with flicker are left alone by Story's light pulse.
+- **Build-up animation** (Motion tab): the diorama assembles itself, layer by layer (stage, buildings, props, plants, characters), in Pop, Rise or Drop style, rippling from the middle or sweeping left to right. One controller carries a two-key timeline you can retime in the Dope Sheet; Remove restores every piece and the original frame range exactly. The stage always pops into place, and a postcard always renders the finished world.
+- Added tests/blender_motion_smoke.py (wind and flicker maths, build-up frames and ground anchoring for every style, Story coexistence, save and reopen, clean removal).
+
 - **Turntable** (Shot tab): one click parents the current camera to a small rig that orbits the world once on a seamless, linear, editable keyframe loop. Rebuild never duplicates it, and Remove puts the camera back exactly where it was, with no leftover objects or actions. Length is set in frames (default 120).
 - **Pie menu** on Alt+W in the 3D View: Golden Hour, Moonlit, Rainy Evening, Misty Dawn, Blue Hour, Remix Layout, Next Shot and a Turntable toggle. With no world yet it offers Conjure and Surprise Me instead. Keys can be changed in Preferences > Keymap.
 - One-click **Conjure World**: describe, press the button, get an approved, built, framed, Material-Preview-lit world with an animated reveal. Every build is still a new version; "Review the plan first" restores the old gated flow.

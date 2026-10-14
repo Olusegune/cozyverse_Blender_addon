@@ -12,6 +12,7 @@ from mathutils import Vector
 from .atmosphere import RAIN_NAME, SNOW_NAME, SUN_NAME, WIND_NAME, apply_atmosphere
 from .core.style_spec import STYLE_PRESETS
 from .core.composition_spec import layout_points, profile_for, prompt_seed
+from .life import apply_life
 from .materials import create_material
 
 
@@ -368,4 +369,6 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     _tag_world_members(root, root.name)
     apply_atmosphere(scene, settings)
     _tag_world_members(root, root.name)
+    if settings.life_enabled:
+        apply_life(scene, root)
     return root
