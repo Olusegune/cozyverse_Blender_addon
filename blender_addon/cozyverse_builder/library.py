@@ -393,7 +393,7 @@ def draw_browser(layout: bpy.types.UILayout, context: bpy.types.Context, columns
         box.operator("cozyverse.library_add_folder", text="Add Library Folder", icon="NEWFOLDER")
         return
     search = layout.row(align=True)
-    search.prop(settings, "library_query", text="", icon="VIEWZOOM", placeholder="Search your library")
+    search.prop(settings, "library_query", text="", icon="VIEWZOOM", placeholder="Search")
     search.prop(settings, "library_role", text="")
     records, page, total, matches = view(settings, size)
     if not records:

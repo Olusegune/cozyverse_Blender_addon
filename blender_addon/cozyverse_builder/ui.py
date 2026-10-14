@@ -11,6 +11,7 @@ from .core.style_spec import STYLE_PRESETS
 from . import library
 from .flow import LOOKS, SHOTS, TABS, _turntable_for
 from .motion import controller_for
+from .properties import _look_items_with_previews
 from .vehicles import railway_for, road_for, traffic_for
 from .visual_assets import icon_id
 
@@ -140,8 +141,8 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     _draw_reads_as(layout, settings)
 
     main = layout.row(align=True)
-    main.scale_y = 1.9
-    main.operator("cozyverse.conjure", text="Conjure World", icon="WORLD_DATA")
+    main.scale_y = 2.2
+    main.operator("cozyverse.conjure", text="Conjure World", icon="WORLD_DATA", depress=True)
     dice = main.row(align=True)
     dice.scale_x = 0.55
     dice.operator("cozyverse.surprise", text="", icon="SHADERFX")
@@ -225,8 +226,8 @@ def _draw_review(layout: bpy.types.UILayout, settings) -> None:
     actions.operator("cozyverse.cancel_revision", text="Back", icon="BACK")
     build = actions.row(align=True)
     build.enabled = settings.plan_approved
-    build.scale_y = 1.6
-    build.operator("cozyverse.build_approved_plan", text="Build New Version", icon="MOD_BUILD")
+    build.scale_y = 1.8
+    build.operator("cozyverse.build_approved_plan", text="Build New Version", icon="MOD_BUILD", depress=True)
 
 
 def _draw_built(layout: bpy.types.UILayout, settings, world) -> None:
@@ -278,6 +279,15 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     if _needs_world(layout, settings, "light and weather it"):
         return
     layout.template_icon_view(settings, "atmosphere_preset", show_labels=True, scale=8.0, scale_popup=6.0)
+    look = next((item for item in _look_items_with_previews(None, None) if item[0] == settings.atmosphere_preset), None)
+    if look is not None:
+        title = layout.row()
+        title.alignment = "CENTER"
+        title.label(text=look[1])
+        blurb = layout.row()
+        blurb.alignment = "CENTER"
+        blurb.active = False
+        blurb.label(text=look[2])
 
     time = layout.box()
     top = time.row()
@@ -292,7 +302,7 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
 
     sky = layout.box()
     sky.label(text="Sky and weather", icon="WORLD")
-    sky.prop(settings, "weather", expand=True)
+    sky.row(align=True).prop(settings, "weather", expand=True)
     if settings.weather == "RAIN":
         sky.prop(settings, "rain_amount", slider=True)
     if settings.weather == "SNOW":
@@ -325,7 +335,7 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     if body is not None:
         body.prop(settings, "wind_amount", slider=True)
         body.prop(settings, "wetness_amount", slider=True)
-        body.prop(settings, "season", expand=True)
+        body.row(align=True).prop(settings, "season", expand=True)
 
     header, body = layout.panel("cv_mood_practical", default_closed=True)
     header.label(text="Window glow and lamps", icon="LIGHT_POINT")
@@ -343,7 +353,7 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
         row.operator("cozyverse.save_atmosphere_preset", text="Save Look", icon="FILE_TICK")
         row.operator("cozyverse.load_atmosphere_preset", text="Load Saved", icon="IMPORT")
         body.operator("cozyverse.reset_atmosphere", text="Reset", icon="LOOP_BACK")
-        body.prop(settings, "weather_quality", expand=True)
+        body.row(align=True).prop(settings, "weather_quality", expand=True)
 
 
 def _draw_shot(layout: bpy.types.UILayout, context: bpy.types.Context, settings) -> None:
@@ -379,8 +389,8 @@ def _draw_shot(layout: bpy.types.UILayout, context: bpy.types.Context, settings)
             body.prop(settings, "turntable_frames")
             body.operator("cozyverse.turntable", text="Add Turntable", icon="ORIENTATION_GIMBAL")
     post = layout.column(align=True)
-    post.scale_y = 1.7
-    post.operator("cozyverse.render_postcard", text="Render Postcard", icon="RENDER_STILL")
+    post.scale_y = 1.9
+    post.operator("cozyverse.render_postcard", text="Render Postcard", icon="RENDER_STILL", depress=True)
     note = layout.row()
     note.active = False
     note.label(text="Set the Mood first; it shows in renders.")
@@ -440,12 +450,12 @@ def _draw_buildup(layout: bpy.types.UILayout, settings) -> None:
     world = _active_world(settings)
     controller = controller_for(world)
     if controller is None:
-        body.prop(settings, "buildup_style", expand=True)
+        body.row(align=True).prop(settings, "buildup_style", expand=True)
         body.prop(settings, "buildup_order", text="")
         body.prop(settings, "buildup_seconds")
         row = body.row()
-        row.scale_y = 1.5
-        row.operator("cozyverse.buildup_add", text="Play Build-Up", icon="PLAY")
+        row.scale_y = 1.7
+        row.operator("cozyverse.buildup_add", text="Play Build-Up", icon="PLAY", depress=True)
         note = body.row()
         note.active = False
         note.label(text="The world assembles itself on an editable timeline.")
@@ -456,7 +466,7 @@ def _draw_buildup(layout: bpy.types.UILayout, settings) -> None:
         row.operator("cozyverse.buildup_replay", text="Replay", icon="PLAY")
         row.operator("cozyverse.buildup_finish", text="Show Finished", icon="CHECKMARK")
         body.operator("cozyverse.buildup_add", text="Rebuild With These Settings", icon="FILE_REFRESH")
-        body.prop(settings, "buildup_style", expand=True)
+        body.row(align=True).prop(settings, "buildup_style", expand=True)
         body.prop(settings, "buildup_order", text="")
         body.prop(settings, "buildup_seconds")
         body.operator("cozyverse.buildup_remove", text="Remove Build-Up", icon="X")
