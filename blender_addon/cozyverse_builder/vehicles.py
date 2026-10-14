@@ -16,6 +16,7 @@ import bpy
 from .atmosphere import apply_atmosphere
 from .core.style_spec import STYLE_PRESETS
 from .life import add_driver
+from .library import place_asset, slot_asset
 from .materials import create_material
 from .operators import _log_activity
 from .world_builder import _cube, _cylinder, _new_collection, _sphere
@@ -159,6 +160,7 @@ def build_traffic(scene, world, count: int, seconds: float):
     lamp = create_material("CV_Mat_WindowLamp", (1.0, 0.85, 0.5, 1.0), 0.0, emissive=True)
     tail = create_material("CV_Mat_Veh_Tail", (0.75, 0.05, 0.05, 1.0))
     paints = _paints(world)
+    asset = slot_asset(scene.cozyverse, "CAR")  # a model from the user's library, when one is chosen
     for index in range(count):
         east = index % 2 == 0
         period = max(24.0, seconds * fps * (1.0 + 0.18 * math.sin(index * 1.7)))
@@ -166,8 +168,17 @@ def build_traffic(scene, world, count: int, seconds: float):
         y = road.location.y + (-lane if east else lane)
         root = _root(f"CV_Car_{index + 1}", collection, world, (0.0, y, road_top), period, phase)
         root.rotation_euler = (0.0, 0.0, 0.0 if east else math.pi)
-        paint = create_material(f"CV_Mat_Veh_Paint{index + 1}", paints[index % len(paints)], 0.15)
-        _build_car(index, root, collection, paint, tire, glass, lamp, tail, hub)
+        built_from_library = False
+        if asset is not None:
+            try:
+                place_asset(asset, collection, "CAR", parent=root)
+                built_from_library = True
+            except (ValueError, RuntimeError) as exc:
+                scene.cozyverse.status = f"Could not use {asset['name']} ({exc}); using the built-in car"
+                asset = None
+        if not built_from_library:
+            paint = create_material(f"CV_Mat_Veh_Paint{index + 1}", paints[index % len(paints)], 0.15)
+            _build_car(index, root, collection, paint, tire, glass, lamp, tail, hub)
         _u_driver(root)
         start, end = (-half_length, half_length) if east else (half_length, -half_length)
         var_u = (("u", "OBJECT", root, '["cv_u"]'),)

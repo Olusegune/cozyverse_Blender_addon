@@ -502,6 +502,12 @@ class CV_OT_RenderPostcard(bpy.types.Operator):
         controller = controller_for(bpy.data.collections.get(context.scene.cozyverse.active_world_name))
         if controller is not None and scene.frame_current < finish_frame(controller):
             scene.frame_set(finish_frame(controller))  # a postcard shows the finished world, not a half-built one
+        from .core.library_spec import license_note
+
+        active = bpy.data.collections.get(context.scene.cozyverse.active_world_name)
+        note = license_note([obj["cv_license"] for obj in (active.all_objects if active else ()) if "cv_license" in obj])
+        if note is not None and note.level == "WARNING":
+            self.report({"WARNING"}, note.text)
         if scene.render.engine == "BLENDER_WORKBENCH":
             engines = {item.identifier for item in scene.render.bl_rna.properties["engine"].enum_items}
             scene.render.engine = "BLENDER_EEVEE" if "BLENDER_EEVEE" in engines else "BLENDER_EEVEE_NEXT"

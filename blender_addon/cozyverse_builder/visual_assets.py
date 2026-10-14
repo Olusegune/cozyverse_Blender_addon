@@ -20,6 +20,7 @@ FILES = {
     **{f"season_{name}": f"seasons/season_{name}.png" for name in ("spring", "summer", "autumn", "winter")},
     **{f"story_{name}": f"story/story_{name}.png" for name in ("quiet_morning", "busy_market", "rainy_evening")},
     **{f"cinematic_{name}": f"cinematic/cinematic_{name}.png" for name in ("wide", "hero_medium", "detail_closeup")},
+    **{f"placeholder_{name}": f"placeholders/placeholder_{name}.png" for name in ("building", "character", "furniture", "other", "prop", "road", "vegetation", "vehicle")},
     "empty_no_image": "premium/empty_no_image.png",
     "empty_no_assets": "premium/empty_no_assets.png",
     "success_world_ready": "premium/success_world_ready.png",

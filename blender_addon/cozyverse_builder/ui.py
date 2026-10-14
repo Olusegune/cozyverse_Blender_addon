@@ -8,6 +8,7 @@ import json
 from .core.composition_spec import profile_for
 from .core.scene_plan import proposed_plan
 from .core.style_spec import STYLE_PRESETS
+from . import library
 from .flow import LOOKS, SHOTS, TABS, _turntable_for
 from .motion import controller_for
 from .vehicles import railway_for, road_for, traffic_for
@@ -733,9 +734,37 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
 
 
 
+def _draw_library(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
+    header, body = layout.panel("cv_assets_library", default_closed=False)
+    header.label(text="Your library", icon="ASSET_MANAGER")
+    if body is not None:
+        library.draw_browser(body, context)
+        library.draw_selected(body, context)
+    header, body = layout.panel("cv_assets_sources", default_closed=bool(library.state()["sources"]))
+    header.label(text="Folders", icon="FILE_FOLDER")
+    if body is not None:
+        library.draw_sources(body)
+    header, body = layout.panel("cv_assets_slots", default_closed=False)
+    header.label(text="Use in my worlds", icon="AUTO")
+    if body is None:
+        return
+    record = library.record_for(settings.slot_car_asset) if settings.slot_car_asset else None
+    if record is None:
+        note = body.row()
+        note.active = False
+        note.label(text="Cars: built-in. Select a model, then Use as My Car.")
+        return
+    row = body.row(align=True)
+    row.template_icon(icon_value=library.thumbnail_id(record), scale=2.5)
+    column = row.column(align=True)
+    column.prop(settings, "slot_car_enabled", text=f"Cars: {record['name'][:18]}")
+    column.operator("cozyverse.library_clear_slot", text="Back to built-in", icon="LOOP_BACK")
+
+
 def _draw_assets(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
+    _draw_library(context, layout, settings)
     for idname, label, icon, closed, function in (
-        ("cv_assets_local", "Your local assets", "ASSET_MANAGER", False, lambda box: _draw_asset_library(context, box, settings)),
+        ("cv_assets_local", "Classic catalog", "ASSET_MANAGER", True, lambda box: _draw_asset_library(context, box, settings)),
         ("cv_assets_reference", "From a reference image", "IMAGE_DATA", True, lambda box: _draw_image_to_world(box, settings)),
         ("cv_assets_factory", "3D asset factory", "MESH_ICOSPHERE", True, lambda box: _draw_generate(context, box, settings)),
     ):

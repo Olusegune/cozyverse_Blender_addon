@@ -6,6 +6,7 @@ import bpy
 from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty, StringProperty
 
 from .core.demo_spec import DEFAULT_PROMPT
+from .core.library_spec import FORWARDS, LICENSES, ROLES
 from .core.style_spec import style_items
 from .visual_assets import icon_id
 
@@ -101,6 +102,16 @@ def _update_life(self, context: bpy.types.Context) -> None:
         apply_life(scene, world)
     else:
         clear_life(world)
+
+
+def _reset_library_page(self, _context: bpy.types.Context) -> None:
+    self.library_page = 0
+
+
+def _update_library_edit(self, _context: bpy.types.Context) -> None:
+    from .library import write_edit_fields
+
+    write_edit_fields(self)
 
 
 def _invalidate_story_preview(self, _context: bpy.types.Context) -> None:
@@ -299,6 +310,21 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         default="CENTER",
     )
     buildup_seconds: FloatProperty(name="Length", description="How long the assembly takes", default=4.0, min=1.0, max=30.0, unit="TIME_ABSOLUTE")
+    library_query: StringProperty(name="Search", default="", update=_reset_library_page)
+    library_role: EnumProperty(
+        name="Role",
+        items=(("ALL", "All roles", "Show everything"), *[(key, label, note) for key, label, note in ROLES]),
+        default="ALL",
+        update=_reset_library_page,
+    )
+    library_page: IntProperty(name="Page", default=0, min=0)
+    library_selected: StringProperty(name="Selected Model", default="")
+    library_edit_role: EnumProperty(name="Role", description="What this model is. Cars on the road use models marked Car", items=[(key, label, note) for key, label, note in ROLES], default="UNTAGGED", update=_update_library_edit)
+    library_edit_license: EnumProperty(name="Licence", description="What the licence allows. Editorial-only models warn you before you publish renders", items=[(key, label, note) for key, label, note in LICENSES], default="UNKNOWN", update=_update_library_edit)
+    library_edit_forward: EnumProperty(name="Front", description="Which way the model faces, so it can drive forward", items=[(key, label, note) for key, label, note in FORWARDS], default="AUTO", update=_update_library_edit)
+    library_edit_stylize: BoolProperty(name="Flatten to clay colors", description="Replace the model's materials with flat clay-like ones of the same colors so it matches the diorama", default=False, update=_update_library_edit)
+    slot_car_asset: StringProperty(name="My Car", default="")
+    slot_car_enabled: BoolProperty(name="Use my car", description="Cars on the road use your chosen model instead of the built-in one", default=False)
     traffic_cars: IntProperty(name="Cars", description="How many cars drive the road", default=2, min=1, max=4)
     traffic_seconds: FloatProperty(name="Trip time", description="Seconds for a car to cross the road", default=7.0, min=2.0, max=60.0, unit="TIME_ABSOLUTE")
     train_cars: IntProperty(name="Carriages", description="Carriages behind the locomotive", default=2, min=1, max=2)
