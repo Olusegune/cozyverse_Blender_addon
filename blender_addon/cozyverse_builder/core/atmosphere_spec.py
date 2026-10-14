@@ -25,19 +25,20 @@ class AtmosphereValues:
     snow_amount: float = 0.0
     season: str = "SUMMER"
     weather_quality: str = "MEDIUM"
+    clouds_amount: float = 35.0
 
 
 PRESETS = {
-    "GOLDEN_HOUR": AtmosphereValues(18.0, 55.0, 88.0, 38.0, 70.0, "CLEAR", 0.0, 0.25, 2400.0),
-    "RAINY_CAFE": AtmosphereValues(19.0, 25.0, 76.0, 28.0, 95.0, "RAIN", 45.0, 0.5, 2200.0),
-    "MOONLIT": AtmosphereValues(22.0, 12.0, 18.0, 16.0, 62.0, "CLEAR", 0.0, 0.8, 3200.0),
-    "MISTY_DAWN": AtmosphereValues(6.5, 32.0, 58.0, 42.0, 35.0, "CLEAR", 0.0, 0.35, 3000.0),
-    "BRIGHT_DAY": AtmosphereValues(12.0, 72.0, 42.0, 55.0, 0.0, "CLEAR", 0.0, -0.1, 4000.0, False),
-    "BLUE_HOUR": AtmosphereValues(20.0, 18.0, 24.0, 24.0, 82.0, "CLEAR", 0.0, 0.65, 2600.0),
-    "STARRY_NIGHT": AtmosphereValues(1.0, 8.0, 12.0, 12.0, 85.0, "CLEAR", 0.0, 0.9, 2800.0),
-    "SUNSET_GLOW": AtmosphereValues(17.6, 65.0, 100.0, 30.0, 60.0, "CLEAR", 0.0, 0.2, 2300.0),
-    "OVERCAST": AtmosphereValues(13.0, 20.0, 30.0, 64.0, 25.0, "CLEAR", 0.0, 0.1, 4200.0, True, 22.0),
-    "FIRST_SNOW": AtmosphereValues(16.0, 32.0, 28.0, 50.0, 78.0, "SNOW", 0.0, 0.3, 2800.0, True, 12.0, 8.0, 0.0, 55.0, "WINTER"),
+    "GOLDEN_HOUR": AtmosphereValues(18.0, 55.0, 88.0, 38.0, 70.0, "CLEAR", 0.0, 0.25, 2400.0, clouds_amount=40.0),
+    "RAINY_CAFE": AtmosphereValues(19.0, 25.0, 76.0, 28.0, 95.0, "RAIN", 45.0, 0.5, 2200.0, clouds_amount=85.0),
+    "MOONLIT": AtmosphereValues(22.0, 12.0, 18.0, 16.0, 62.0, "CLEAR", 0.0, 0.8, 3200.0, clouds_amount=22.0),
+    "MISTY_DAWN": AtmosphereValues(6.5, 32.0, 58.0, 42.0, 35.0, "CLEAR", 0.0, 0.35, 3000.0, clouds_amount=48.0),
+    "BRIGHT_DAY": AtmosphereValues(12.0, 72.0, 42.0, 55.0, 0.0, "CLEAR", 0.0, -0.1, 4000.0, False, clouds_amount=32.0),
+    "BLUE_HOUR": AtmosphereValues(20.0, 18.0, 24.0, 24.0, 82.0, "CLEAR", 0.0, 0.65, 2600.0, clouds_amount=30.0),
+    "STARRY_NIGHT": AtmosphereValues(1.0, 8.0, 12.0, 12.0, 85.0, "CLEAR", 0.0, 0.9, 2800.0, clouds_amount=8.0),
+    "SUNSET_GLOW": AtmosphereValues(17.6, 65.0, 100.0, 30.0, 60.0, "CLEAR", 0.0, 0.2, 2300.0, clouds_amount=58.0),
+    "OVERCAST": AtmosphereValues(13.0, 20.0, 30.0, 64.0, 25.0, "CLEAR", 0.0, 0.1, 4200.0, True, 22.0, clouds_amount=92.0),
+    "FIRST_SNOW": AtmosphereValues(16.0, 32.0, 28.0, 50.0, 78.0, "SNOW", 0.0, 0.3, 2800.0, True, 12.0, 8.0, 0.0, 55.0, "WINTER", clouds_amount=80.0),
 }
 
 
@@ -73,6 +74,25 @@ def sky_colors(time_hour: float, warmth: float) -> tuple[tuple[float, float, flo
     zenith = _mix((0.004, 0.008, 0.04), (0.20, 0.43, 0.84), daylight)
     glow = clamp(1.0 - abs(elevation - 6.0) / 16.0, 0.0, 1.0) * (clamp(warmth, 0.0, 100.0) / 100.0)
     return _mix(horizon, (0.98, 0.50, 0.28), glow * 0.7), _mix(zenith, (0.45, 0.25, 0.40), glow * 0.25)
+
+
+def cloud_cover(clouds_amount: float, weather: str) -> float:
+    """Effective cloud cover 0-100: rain and snow always bring a heavy sky, fog a soft one."""
+    cover = clamp(clouds_amount, 0.0, 100.0)
+    if weather in {"RAIN", "SNOW"}:
+        return max(cover, 80.0)
+    if weather == "FOG":
+        return max(cover, 50.0)
+    return cover
+
+
+def cloud_color(time_hour: float, warmth: float) -> tuple[float, float, float]:
+    """Cloud tint: bright white by day, rosy at sunrise and sunset, a dim blue-grey at night."""
+    elevation = sun_elevation_degrees(time_hour)
+    daylight = clamp((elevation + 8.0) / 66.0, 0.0, 1.0) ** 0.7
+    base = _mix((0.035, 0.045, 0.09), (1.0, 1.0, 1.0), daylight)
+    glow = clamp(1.0 - abs(elevation - 6.0) / 16.0, 0.0, 1.0) * (clamp(warmth, 0.0, 100.0) / 100.0)
+    return _mix(base, (1.0, 0.62, 0.45), glow * 0.6)
 
 
 def star_visibility(time_hour: float, stars_amount: float, weather: str, fog_amount: float) -> float:
@@ -127,4 +147,5 @@ def deserialize_preset(payload: str) -> AtmosphereValues:
         clamp(data.get("snow_amount", 0.0), 0.0, 100.0),
         data.get("season", "SUMMER") if data.get("season", "SUMMER") in {"SPRING", "SUMMER", "AUTUMN", "WINTER"} else "SUMMER",
         data.get("weather_quality", "MEDIUM") if data.get("weather_quality", "MEDIUM") in {"LOW", "MEDIUM", "HIGH"} else "MEDIUM",
+        clamp(data.get("clouds_amount", 35.0), 0.0, 100.0),
     )

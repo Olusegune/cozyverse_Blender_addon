@@ -61,6 +61,41 @@ try:
     red, green, blue = horizon()
     assert red > blue
 
+    # Clouds: a procedural layer whose cover follows the slider and the weather, and which drifts.
+    assert all(nodes.get(n) is not None for n in ("CV Sky Cloud Mix", "CV Sky Cloud Mask", "CV Sky Cloud Map"))
+    mask = nodes["CV Sky Cloud Mask"]
+    settings.atmosphere_preset = "BRIGHT_DAY"
+    settings.weather = "CLEAR"
+    settings.clouds_amount = 0.0
+    clear_threshold = mask.inputs["From Min"].default_value
+    settings.clouds_amount = 100.0
+    assert mask.inputs["From Min"].default_value < clear_threshold - 0.4  # far more of the noise becomes cloud
+    settings.clouds_amount = 10.0
+    sparse = mask.inputs["From Min"].default_value
+    settings.weather = "RAIN"
+    assert mask.inputs["From Min"].default_value < sparse - 0.2  # rain forces a heavy sky
+    settings.weather = "CLEAR"
+    settings.atmosphere_preset = "OVERCAST"
+    overcast = mask.inputs["From Min"].default_value
+    settings.atmosphere_preset = "STARRY_NIGHT"
+    assert overcast < mask.inputs["From Min"].default_value - 0.3
+    nodes["CV Sky Cloud Mix"].inputs[7].default_value  # the tint exists
+    settings.atmosphere_preset = "BRIGHT_DAY"
+    day_tint = sum(tuple(nodes["CV Sky Cloud Mix"].inputs[7].default_value)[:3])
+    settings.atmosphere_preset = "STARRY_NIGHT"
+    assert day_tint > sum(tuple(nodes["CV Sky Cloud Mix"].inputs[7].default_value)[:3]) * 4
+    tree_drivers = scene.world.node_tree.animation_data.drivers
+    assert tree_drivers and all(d.driver.is_simple_expression and d.driver.is_valid for d in tree_drivers)
+    settings.wind_amount = 0.0
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
+    here = scene.world.evaluated_get(bpy.context.evaluated_depsgraph_get()).node_tree.nodes["CV Sky Cloud Map"].inputs["Location"].default_value[0]
+    scene.frame_set(121)
+    bpy.context.view_layer.update()
+    later = scene.world.evaluated_get(bpy.context.evaluated_depsgraph_get()).node_tree.nodes["CV Sky Cloud Map"].inputs["Location"].default_value[0]
+    assert later > here + 0.1  # the cloud deck drifts as the timeline plays
+    scene.frame_set(1)
+
     # Fog is a bounded box of mist, so the sky survives it.
     settings.fog_amount = 0.0
     fog = next(o for o in world_collection.all_objects if o.name.startswith("CV_Fog_Volume"))

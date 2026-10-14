@@ -307,6 +307,7 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
         sky.prop(settings, "rain_amount", slider=True)
     if settings.weather == "SNOW":
         sky.prop(settings, "snow_amount", slider=True)
+    sky.prop(settings, "clouds_amount", slider=True)
     sky.prop(settings, "stars_amount", slider=True)
     sky.prop(settings, "fog_amount", slider=True)
 

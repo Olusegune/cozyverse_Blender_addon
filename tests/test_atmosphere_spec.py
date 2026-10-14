@@ -6,6 +6,8 @@ from blender_addon.cozyverse_builder.core.atmosphere_spec import (
     AtmosphereValues,
     deserialize_preset,
     PRESETS,
+    cloud_color,
+    cloud_cover,
     kelvin_rgb,
     night_factor,
     sky_colors,
@@ -79,6 +81,26 @@ class AtmosphereSpecTests(unittest.TestCase):
         self.assertLess(star_visibility(1.0, 70.0, "RAIN", 0.0), clear * 0.2)
         self.assertLess(star_visibility(1.0, 70.0, "CLEAR", 100.0), clear * 0.2)
         self.assertEqual(star_visibility(1.0, 0.0, "CLEAR", 0.0), 0.0)
+
+    def test_cloud_cover_is_forced_up_by_precipitation_and_fog(self) -> None:
+        self.assertEqual(cloud_cover(10.0, "CLEAR"), 10.0)
+        self.assertEqual(cloud_cover(10.0, "RAIN"), 80.0)
+        self.assertEqual(cloud_cover(95.0, "SNOW"), 95.0)
+        self.assertEqual(cloud_cover(10.0, "FOG"), 50.0)
+        self.assertEqual(cloud_cover(500.0, "CLEAR"), 100.0)
+
+    def test_cloud_color_is_bright_by_day_rosy_at_sunset_dim_at_night(self) -> None:
+        day, night, sunset = cloud_color(12.0, 40.0), cloud_color(1.0, 40.0), cloud_color(17.6, 100.0)
+        self.assertGreater(sum(day), sum(night) * 6)
+        self.assertGreater(sunset[0], sunset[2])
+
+    def test_every_look_has_its_own_cloud_cover_and_old_presets_get_a_default(self) -> None:
+        self.assertGreater(PRESETS["OVERCAST"].clouds_amount, 85.0)
+        self.assertLess(PRESETS["STARRY_NIGHT"].clouds_amount, 15.0)
+        for values in PRESETS.values():
+            self.assertEqual(deserialize_preset(serialize_preset(values)).clouds_amount, values.clouds_amount)
+        old = '{"schema_version":"3.0","time_hour":7,"sun_intensity":30,"warmth":40,"ambient_intensity":20,"interior_intensity":10,"weather":"CLEAR","rain_amount":0}'
+        self.assertEqual(deserialize_preset(old).clouds_amount, 35.0)
 
 
 if __name__ == "__main__":

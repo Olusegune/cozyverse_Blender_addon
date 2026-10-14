@@ -41,6 +41,7 @@ def _update_atmosphere_preset(self, context: bpy.types.Context) -> None:
     self.snow_amount = values.snow_amount
     self.season = values.season
     self.weather_quality = values.weather_quality
+    self.clouds_amount = values.clouds_amount
     _update_atmosphere(self, context)
 
 
@@ -318,6 +319,7 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         default="CENTER",
     )
     buildup_seconds: FloatProperty(name="Length", description="How long the assembly takes", default=4.0, min=1.0, max=30.0, unit="TIME_ABSOLUTE")
+    clouds_amount: FloatProperty(name="Clouds", description="How much of the sky is covered. Rain and snow always bring heavy cloud", default=35.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
     stars_amount: FloatProperty(name="Stars", description="How many stars show on a clear night", default=70.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
     ui_advanced: BoolProperty(name="Advanced controls", description="Show every lighting, weather and season control", default=False)
     daycycle_seconds: FloatProperty(name="Length", description="How long one full day and night takes", default=12.0, min=2.0, max=120.0, unit="TIME_ABSOLUTE")

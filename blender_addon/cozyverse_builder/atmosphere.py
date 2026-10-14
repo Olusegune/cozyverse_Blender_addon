@@ -8,7 +8,7 @@ import random
 import bpy
 
 from .materials import sync_color, sync_glow, sync_roughness
-from .core.atmosphere_spec import AtmosphereValues, sky_colors, star_visibility, kelvin_rgb, serialize_preset, sun_azimuth_degrees, sun_elevation_degrees, warmth_rgb
+from .core.atmosphere_spec import AtmosphereValues, cloud_color, cloud_cover, sky_colors, star_visibility, kelvin_rgb, serialize_preset, sun_azimuth_degrees, sun_elevation_degrees, warmth_rgb
 
 
 SUN_NAME = "CV_Sun"
@@ -157,12 +157,96 @@ def _apply_fog(world: bpy.types.World, world_collection, density: float) -> None
     fog["cv_fog_density"] = density
 
 
-def _apply_sky(world: bpy.types.World, background, settings) -> None:
+def _ensure_cloud_nodes(scene: bpy.types.Scene, world: bpy.types.World, background) -> None:
+    """Insert (once) a procedural cloud layer between the stars and both Background nodes."""
+    nodes = world.node_tree.nodes
+    links = world.node_tree.links
+    if nodes.get("CV Sky Cloud Mix") is not None or nodes.get("CV Sky Stars") is None:
+        return
+    separate = nodes["CV Sky Separate"]
+    coord = nodes["CV Sky Coord"]
+    # Project the view direction onto a flat cloud deck overhead so clouds shrink toward the horizon.
+    floor = nodes.new("ShaderNodeMath")
+    floor.name = "CV Sky Cloud Floor"
+    floor.operation = "MAXIMUM"
+    floor.inputs[1].default_value = 0.08
+    divide_x = nodes.new("ShaderNodeMath")
+    divide_x.name = "CV Sky Cloud X"
+    divide_x.operation = "DIVIDE"
+    divide_y = nodes.new("ShaderNodeMath")
+    divide_y.name = "CV Sky Cloud Y"
+    divide_y.operation = "DIVIDE"
+    deck = nodes.new("ShaderNodeCombineXYZ")
+    deck.name = "CV Sky Cloud Deck"
+    drift = nodes.new("ShaderNodeMapping")
+    drift.name = "CV Sky Cloud Map"
+    noise = nodes.new("ShaderNodeTexNoise")
+    noise.name = "CV Sky Cloud Noise"
+    noise.noise_dimensions = "3D"
+    noise.inputs["Scale"].default_value = 1.7
+    noise.inputs["Detail"].default_value = 6.0
+    noise.inputs["Roughness"].default_value = 0.55
+    shape = nodes.new("ShaderNodeMapRange")
+    shape.name = "CV Sky Cloud Mask"
+    shape.inputs["From Min"].default_value = 0.8
+    shape.inputs["From Max"].default_value = 1.05
+    horizon = nodes.new("ShaderNodeMapRange")
+    horizon.name = "CV Sky Cloud Horizon"
+    horizon.inputs["From Min"].default_value = 0.0
+    horizon.inputs["From Max"].default_value = 0.3
+    fade = nodes.new("ShaderNodeMath")
+    fade.name = "CV Sky Cloud Fade"
+    fade.operation = "MULTIPLY"
+    cloud_mix = nodes.new("ShaderNodeMix")
+    cloud_mix.name = "CV Sky Cloud Mix"
+    cloud_mix.data_type = "RGBA"
+    links.new(separate.outputs["Z"], floor.inputs[0])
+    links.new(separate.outputs["X"], divide_x.inputs[0])
+    links.new(floor.outputs["Value"], divide_x.inputs[1])
+    links.new(separate.outputs["Y"], divide_y.inputs[0])
+    links.new(floor.outputs["Value"], divide_y.inputs[1])
+    links.new(divide_x.outputs["Value"], deck.inputs["X"])
+    links.new(divide_y.outputs["Value"], deck.inputs["Y"])
+    links.new(deck.outputs["Vector"], drift.inputs["Vector"])
+    links.new(drift.outputs["Vector"], noise.inputs["Vector"])
+    links.new(noise.outputs["Fac"], shape.inputs["Value"])
+    links.new(separate.outputs["Z"], horizon.inputs["Value"])
+    links.new(shape.outputs["Result"], fade.inputs[0])
+    links.new(horizon.outputs["Result"], fade.inputs[1])
+    links.new(fade.outputs["Value"], cloud_mix.inputs[0])
+    stars = nodes["CV Sky Stars"]
+    links.new(stars.outputs[2], cloud_mix.inputs[6])
+    links.new(cloud_mix.outputs[2], background.inputs["Color"])
+    seen = nodes.get("CV Sky Camera")
+    if seen is not None:
+        links.new(cloud_mix.outputs[2], seen.inputs["Color"])
+    # The deck drifts with time, faster in wind; a simple-expression driver, so no Python runs.
+    from .life import add_driver
+
+    add_driver(
+        world.node_tree,
+        'nodes["CV Sky Cloud Map"].inputs["Location"].default_value',
+        0,
+        "frame*0.0025*(1+w/40)",
+        (("w", "SCENE", scene, "cozyverse.wind_amount"),),
+    )
+
+
+def _apply_sky(scene: bpy.types.Scene, world: bpy.types.World, background, settings) -> None:
     sky = _ensure_sky_nodes(world, background)
+    _ensure_cloud_nodes(scene, world, background)
     horizon, zenith = sky_colors(settings.time_hour, settings.warmth)
     sky["gradient"].inputs[6].default_value = (*horizon, 1.0)
     sky["gradient"].inputs[7].default_value = (*zenith, 1.0)
     sky["visible"].inputs[1].default_value = star_visibility(settings.time_hour, settings.stars_amount, settings.weather, settings.fog_amount)
+    nodes = world.node_tree.nodes
+    mask = nodes.get("CV Sky Cloud Mask")
+    if mask is not None:
+        cover = cloud_cover(settings.clouds_amount, settings.weather) / 100.0
+        threshold = 0.78 - 0.62 * cover
+        mask.inputs["From Min"].default_value = threshold
+        mask.inputs["From Max"].default_value = threshold + 0.17
+        nodes["CV Sky Cloud Mix"].inputs[7].default_value = (*cloud_color(settings.time_hour, settings.warmth), 1.0)
 
 
 def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
@@ -200,7 +284,7 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
     if background is not None:
         ambient = settings.ambient_intensity / 100.0
         background.inputs["Strength"].default_value = 0.03 + ambient * 0.55
-        _apply_sky(world, background, settings)
+        _apply_sky(scene, world, background, settings)
         changed = True
 
     if world.node_tree is not None:
@@ -295,6 +379,7 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
             settings.snow_amount,
             settings.season,
             settings.weather_quality,
+            settings.clouds_amount,
         )
         world_collection["cv_atmosphere_schema"] = "3.0"
         world_collection["cv_atmosphere_preset"] = settings.atmosphere_preset

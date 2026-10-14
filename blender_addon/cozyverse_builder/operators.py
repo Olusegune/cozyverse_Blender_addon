@@ -231,6 +231,7 @@ def _atmosphere_from_settings(settings) -> AtmosphereValues:
         settings.snow_amount,
         settings.season,
         settings.weather_quality,
+        settings.clouds_amount,
     )
 
 
@@ -252,6 +253,7 @@ def _set_atmosphere_values(settings, values: AtmosphereValues, preset: str = "CU
     settings.snow_amount = values.snow_amount
     settings.season = values.season
     settings.weather_quality = values.weather_quality
+    settings.clouds_amount = values.clouds_amount
 
 
 def _has_animation(value) -> bool:
