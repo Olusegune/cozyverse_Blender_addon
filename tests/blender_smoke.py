@@ -31,7 +31,9 @@ try:
     assert "cafe" in settings.prompt.lower()
     assert bpy.ops.cozyverse.apply_prompt_template(template="RETRO_SCIFI") == {"FINISHED"}
     assert settings.preset == "RETRO_SCIFI"
-    assert "rounded modules" in settings.prompt
+    assert "rounded modules" not in settings.prompt  # the sidebar keeps the user's own words
+    from cozyverse_builder.operators import _plan_prompt
+    assert "rounded modules" in _plan_prompt(settings)
     # Headless Blender does not expose a system clipboard; verify its safe empty-state path.
     bpy.context.window_manager.clipboard = ""
     assert bpy.ops.cozyverse.paste_prompt() == {"CANCELLED"}

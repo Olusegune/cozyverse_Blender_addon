@@ -168,7 +168,7 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
                     sync_color(material, season_colors[settings.season])
                 if material.get("cv_emissive"):
                     if material.name.startswith("CV_Mat_Window"):
-                        glow = (settings.interior_intensity / 100.0) * 6.0 if settings.practical_lights else 0.0
+                        glow = (settings.interior_intensity / 100.0) * 4.5 if settings.practical_lights else 0.0
                         sync_glow(material, glow, kelvin_rgb(settings.practical_temperature))
                     else:
                         sync_glow(material, 0.8, tuple(material.diffuse_color)[:3])

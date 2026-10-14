@@ -100,12 +100,27 @@ def _sphere(name, location, radius, collection, material, scale=(1.0, 1.0, 1.0))
     return _finish_mesh(obj, name, collection, material, 0.0)
 
 
+def _windows(name, x, y, front_y, rows, columns, scale, collection, glass, width=0.17, height=0.2):
+    """Small emissive panes on a building's front face; they glow with the practical lights."""
+    for row, z in enumerate(rows):
+        for column, offset in enumerate(columns):
+            _cube(
+                f"{name}_Window{row * len(columns) + column + 1}",
+                (x + offset * scale, front_y, z * scale),
+                (width * scale, 0.04, height * scale),
+                collection,
+                glass,
+                0.015,
+            )
+
+
 def _build_architecture(form, name, location, scale, collection, wall, roof, trim, glass):
     x, y, _ = location
     if form == "MODULE":
         body = _cylinder(name, (x, y, 0.9 * scale), 0.95 * scale, 1.8 * scale, collection, wall)
         _sphere(f"{name}_Dome", (x, y, 1.8 * scale), 0.8 * scale, collection, glass, (1.0, 1.0, 0.45))
         _cylinder(f"{name}_Antenna", (x, y, 2.7 * scale), 0.06 * scale, 1.4 * scale, collection, trim)
+        _windows(name, x, y, y - 0.92 * scale, (0.95,), (-0.3, 0.0, 0.3), scale, collection, glass, 0.12, 0.17)
         return body
     if form == "ROCK":
         return _sphere(name, (x, y, 0.65 * scale), 0.9 * scale, collection, wall, (1.3, 0.9, 0.7))
@@ -113,6 +128,11 @@ def _build_architecture(form, name, location, scale, collection, wall, roof, tri
         body = _cylinder(name, (x, y, 0.9 * scale), 0.75 * scale, 1.8 * scale, collection, wall) if form == "TURRET" else _cube(name, (x, y, 0.75 * scale), (0.9 * scale, 0.65 * scale, 0.75 * scale), collection, wall, 0.07)
         bpy.ops.mesh.primitive_cone_add(vertices=8 if form == "TURRET" else 4, radius1=1.05 * scale, depth=0.9 * scale, location=(x, y, 2.05 * scale))
         _finish_mesh(bpy.context.object, f"{name}_Roof", collection, roof, 0.04)
+        if form == "TURRET":
+            _windows(name, x, y, y - 0.76 * scale, (0.7, 1.35), (0.0,), scale, collection, glass, 0.1, 0.16)
+        else:
+            # A hanging lantern keeps market stalls glowing after dark.
+            _sphere(f"{name}_Lantern", (x + 0.35 * scale, y - 0.7 * scale, 1.35 * scale), 0.14 * scale, collection, glass)
         return body
     height = 1.5 if form == "TOWER" else 1.0
     body = _cube(name, (x, y, height * scale), (0.9 * scale, 0.72 * scale, height * scale), collection, wall, 0.1)
@@ -121,6 +141,9 @@ def _build_architecture(form, name, location, scale, collection, wall, roof, tri
         roof_obj = bpy.context.object
         roof_obj.rotation_euler.z = math.radians(45)
         _finish_mesh(roof_obj, f"{name}_Roof", collection, roof, 0.05)
+    if form in {"PITCHED_HOUSE", "BARN", "TOWER"}:
+        rows = (0.7, 1.6, 2.5) if form == "TOWER" else (0.75,)
+        _windows(name, x, y, y - 0.73 * scale, rows, (-0.4, 0.4), scale, collection, glass)
     if form == "CAFE":
         _cube(f"{name}_Window", (x, y - 0.73 * scale, 1.05 * scale), (0.48 * scale, 0.04, 0.52 * scale), collection, glass, 0.02)
         _cube(f"{name}_Awning", (x, y - 1.0 * scale, 1.75 * scale), (0.75 * scale, 0.34 * scale, 0.06), collection, trim, 0.03)
@@ -250,7 +273,7 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     wood = _material("CV_Mat_Wood", (0.28, 0.10, 0.035, 1.0))
     trim = _material("CV_Mat_Trim", trim_color, style.metallic)
     green = _material("CV_Mat_Leaves", leaf_color)
-    glass = _material("CV_Mat_Window", (1.0, 0.72, 0.38, 1.0), 0.0, emissive=True)
+    glass = _material("CV_Mat_Window", (0.08, 0.28, 0.42, 1.0), 0.0, emissive=True)
     rain_material = _material("CV_Mat_Rain", (0.08, 0.48, 1.0, 1.0), 0.1, emissive=True)
     snow_material = _material("CV_Mat_Snow", (0.9, 0.96, 1.0, 1.0), 0.0, emissive=True)
     skin = _material("CV_Mat_Character_Skin", (0.56, 0.30, 0.18, 1.0))
@@ -294,6 +317,7 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     for index, (x, y, _) in enumerate(layout_points(seed_prompt, world_type, prop_count, "PROPS")):
         if profile.prop_form in {"TECH", "MAGIC_PROP"}:
             _cylinder(f"CV_{profile.prop_form.title()}_{index + 1}", (x, y, 0.38), 0.18 + (index % 2) * 0.08, 0.76, props, trim)
+            _sphere(f"CV_{profile.prop_form.title()}_{index + 1}_Beacon", (x, y, 0.86), 0.1, props, glass)
         elif profile.prop_form in {"TABLE", "STALL_PROP"}:
             _cube(f"CV_{profile.prop_form.title()}_{index + 1}", (x, y, 0.38), (0.4, 0.32, 0.12), props, wood, 0.04)
         else:

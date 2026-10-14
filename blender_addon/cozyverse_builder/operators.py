@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import bpy
+import dataclasses
 import json
 import math
 import queue
@@ -101,6 +102,17 @@ def _prompt_from_settings(settings) -> str:
     return settings.prompt.strip()[:4000]
 
 
+def _plan_prompt(settings) -> str:
+    """The prompt a plan is built from: what the user wrote plus the chosen style's directive.
+
+    The sidebar keeps the user's own words; the style direction is added here, once.
+    """
+    base = _prompt_from_settings(settings)
+    if not base or "Style direction:" in base:
+        return base
+    return styled_prompt(base, settings.preset)[:4000]
+
+
 def _compose_prompt(setting: str, subject: str, mood: str, details: str, avoid: str) -> str:
     parts = []
     if setting.strip():
@@ -129,7 +141,7 @@ def _plan_from_settings(settings) -> ScenePlan:
         settings.plan_character_count,
         settings.plan_include_road,
         settings.plan_camera_type,
-        _prompt_from_settings(settings),
+        _plan_prompt(settings),
     )
     plan.validate()
     return plan
@@ -507,7 +519,7 @@ class CV_OT_PrepareScenePlan(bpy.types.Operator):
             settings.recovery_hint = "Open Prompt Composer or choose a Quick Start template."
             settings.status = settings.last_error
             return {"CANCELLED"}
-        plan = proposed_plan(prompt, settings.preset)
+        plan = dataclasses.replace(proposed_plan(prompt, settings.preset), prompt=_plan_prompt(settings))
         settings.plan_title = plan.title
         settings.plan_world_type = plan.world_type
         settings.plan_base_shape = plan.base_shape
@@ -612,6 +624,13 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             settings.status = "Building a new editable world version..."
             source_world = settings.revision_source_world
             world = build_offline_world(context.scene, settings, plan.prompt, json.loads(settings.scene_plan_json), variation=settings.variation)
+            # Versions share one stage, so earlier ones are hidden (never deleted); the Activity tab brings them back.
+            hidden = 0
+            for other in bpy.data.collections:
+                if other is not world and other.get("cv_managed") and other.name.startswith("CV_WORLD") and not other.hide_viewport:
+                    other.hide_viewport = True
+                    other.hide_render = True
+                    hidden += 1
             world["cv_revision_source"] = source_world
             world["cv_revision_preview"] = settings.revision_preview_json
             world["cv_revision_fingerprint"] = settings.revision_fingerprint
@@ -622,7 +641,7 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             settings.last_demo_prompt = plan.prompt
             settings.last_error = ""
             settings.recovery_hint = "Use Select & Frame to inspect it. Previous versions remain untouched."
-            settings.status = f"World ready: {world.name}"
+            settings.status = f"World ready: {world.name}" + (f" ({hidden} earlier version{'s' if hidden != 1 else ''} hidden)" if hidden else "")
             _log_activity(context, "SUCCESS", f"Built {world.name} from approved revision preview; source={source_world or 'new'}")
             self.report({"INFO"}, settings.status)
             return {"FINISHED"}
@@ -778,7 +797,7 @@ class CV_OT_CreateLocalDemo(bpy.types.Operator):
 
     def execute(self, context: bpy.types.Context):
         settings = context.scene.cozyverse
-        prompt = _prompt_from_settings(settings)
+        prompt = _plan_prompt(settings)
         if not prompt:
             settings.status = "Add a world description before building"
             self.report({"WARNING"}, settings.status)
@@ -877,7 +896,7 @@ class CV_OT_PromptComposer(bpy.types.Operator):
         settings.prompt_details = self.details
         settings.prompt_avoid = self.avoid
         settings.preset = self.style
-        settings.prompt = styled_prompt(prompt, self.style)[:4000]
+        settings.prompt = prompt[:4000]
         settings.prompt_text = None
         settings.workflow_step = "DESCRIBE"
         settings.plan_approved = False
@@ -922,7 +941,7 @@ class CV_OT_ApplyPromptTemplate(bpy.types.Operator):
         style_map = {"FANTASY": "COZY_FANTASY", "NATURE": "SOLARPUNK", "RETRO_SCIFI": "RETRO_SCIFI"}
         if self.template in style_map:
             settings.preset = style_map[self.template]
-        settings.prompt = styled_prompt(_compose_prompt(setting, subject, mood, details, avoid), settings.preset)
+        settings.prompt = _compose_prompt(setting, subject, mood, details, avoid)
         settings.prompt_text = None
         settings.workflow_step = "DESCRIBE"
         settings.plan_approved = False

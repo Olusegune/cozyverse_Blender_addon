@@ -61,6 +61,10 @@ try:
     assert settings.variation == 1
     second = settings.active_world_name
     assert second != first and bpy.data.collections.get(first) is not None
+    # Versions share one stage: the earlier one is hidden, never deleted, and the new one is visible.
+    assert bpy.data.collections[first].hide_viewport and bpy.data.collections[first].hide_render
+    assert not bpy.data.collections[second].hide_viewport
+    assert "earlier version" in settings.status
     layout_after_first = sorted(tuple(round(v, 3) for v in obj.location) for obj in bpy.data.collections[first].all_objects if obj.type == "MESH")
     assert layout_before == layout_after_first
     layout_second = sorted(tuple(round(v, 3) for v in obj.location) for obj in bpy.data.collections[second].all_objects if obj.type == "MESH")
@@ -85,6 +89,20 @@ try:
         assert bpy.ops.cozyverse.goto_tab(tab=tab) == {"FINISHED"}
         assert settings.active_tab == tab
     assert bpy.ops.cozyverse.render_postcard() == {"FINISHED"}
+
+    # The sidebar keeps the user's own words; the style directive is added once when planning.
+    settings.prompt = "A tiny harbor with a lighthouse"
+    settings.preset = "SOLARPUNK"
+    from cozyverse_builder.operators import _plan_prompt
+    assert "Style direction" not in settings.prompt and _plan_prompt(settings).count("Style direction") == 1
+
+    # Every composition family has glowing parts, so night looks alive everywhere.
+    for kind in ("village", "city", "cafe", "farm", "market", "fantasy", "lunar space outpost", "forest landscape"):
+        settings.prompt = f"a {kind}"
+        assert bpy.ops.cozyverse.conjure() == {"FINISHED"}, kind
+        glow = [o for o in bpy.data.collections[settings.active_world_name].all_objects if any(t in o.name for t in ("Window", "Lantern", "Beacon", "Dome"))]
+        if kind != "forest landscape":
+            assert glow, kind
 
     # Review-first mode still gates the build behind approval.
     settings.review_before_build = True

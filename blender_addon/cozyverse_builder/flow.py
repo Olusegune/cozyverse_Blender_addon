@@ -100,10 +100,11 @@ class CV_OT_Conjure(bpy.types.Operator):
         _log_activity(context, "APPROVE", "Plan approved by Conjure; a new version is built and nothing is overwritten")
         if bpy.ops.cozyverse.build_approved_plan() != {"FINISHED"}:
             return {"CANCELLED"}
+        hid_earlier = "hidden" in settings.status
         world = bpy.data.collections.get(settings.active_world_name)
         if world is not None:
             _present_world(context, world)
-            settings.status = f"{world.name} is ready" + (f" (remix {settings.variation})" if self.remix else "")
+            settings.status = f"{world.name} is ready" + (f" (remix {settings.variation})" if self.remix else "") + (" · earlier versions hidden" if hid_earlier else "")
         return {"FINISHED"}
 
 
@@ -120,14 +121,13 @@ class CV_OT_Surprise(bpy.types.Operator):
 
     def execute_with(self, context: bpy.types.Context, conjure: bool):
         from .operators import _compose_prompt
-        from .core.style_spec import styled_prompt
 
         settings = context.scene.cozyverse
         setting, subject, mood, details, _kind, style = random.choice(SURPRISES)
         settings.prompt_setting, settings.prompt_subject, settings.prompt_mood, settings.prompt_details = setting, subject, mood, details
         settings.prompt_avoid = ""
         settings.preset = style
-        settings.prompt = styled_prompt(_compose_prompt(setting, subject, mood, details, ""), style)[:4000]
+        settings.prompt = _compose_prompt(setting, subject, mood, details, "")[:4000]
         settings.prompt_text = None
         settings.workflow_step = "DESCRIBE"
         settings.plan_approved = False
@@ -161,15 +161,13 @@ class CV_OT_QuickConjure(bpy.types.Operator):
             layout.label(text=preset.description)
 
     def execute(self, context: bpy.types.Context):
-        from .core.style_spec import styled_prompt
-
         settings = context.scene.cozyverse
         text = self.prompt.strip()
         if not text:
             self.report({"WARNING"}, "Describe your world first")
             return {"CANCELLED"}
         settings.preset = self.style
-        settings.prompt = styled_prompt(text, self.style)[:4000]
+        settings.prompt = text[:4000]
         settings.prompt_text = None
         return bpy.ops.cozyverse.conjure()
 

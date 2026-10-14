@@ -11,6 +11,9 @@
 - Fixed: rain and snow previews were visible on every fresh build; their transforms were also mistaken for hand edits.
 - Fixed: Select and Frame now frames the diorama instead of the distant camera and lights.
 - Added tests/blender_flow_smoke.py.
+- The sidebar prompt now holds only your own words. The style directive is added once when the plan is made, so templates, Surprise and the composer no longer paste a long "Style direction" suffix into the field.
+- Every composition family now has glowing parts: windows on houses, barns, towers, turrets and sci-fi modules, lanterns on market stalls, and beacons on tech and magic props.
+- A new build hides earlier versions (viewport and render only, never deleted) so versions no longer stack on the same stage. Unhide them from the Activity tab.
 
 ## 0.16.0
 
