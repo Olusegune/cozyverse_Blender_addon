@@ -27,6 +27,7 @@ The panel has one row of tabs:
 ## What the new features do
 
 - **Sky:** a gradient that follows the time of day, a warm glow at sunset, procedural stars on clear nights, and drifting clouds. Rain and snow bring heavy cloud and hide the stars. Fog is a soft box of mist around the stage, so the sky stays visible.
+- **Water and land:** say "lake", "pond", "river", "canal", "harbor", "island" or "mountain" in your description, or choose **Water** and **Land** under the prompt. Lakes and ponds fill a back corner, a river runs between the road and the houses, and an island sits in a glass slab of sea. The water ripples with the timeline, reacts to wind, rain and the **Waves** slider (Mood tab), and freezes in winter. A sea island is too small for the train.
 - **Build-up animation:** the diorama assembles itself in layers (stage, buildings, props, plants, characters) in *Pop*, *Rise* or *Drop* style. Move the two keys on `CV_BuildUp` to retime it; **Remove** restores everything exactly.
 - **Ambient life:** swaying plants and flickering lamps run on safe built-in expressions, so they render and survive saving. They respond to the Wind slider.
 - **Cars and train:** low-poly cars drive both lanes of a road; a train leaves a tunnel, stops at a small station, and leaves through the other tunnel. They loop forever on any frame range.

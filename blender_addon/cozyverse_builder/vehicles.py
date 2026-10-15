@@ -354,6 +354,9 @@ class CV_OT_RailwayAdd(bpy.types.Operator):
         if world is None:
             self.report({"WARNING"}, "Conjure or select a world first")
             return {"CANCELLED"}
+        if world.get("cv_water") == "SEA":
+            self.report({"WARNING"}, "A train needs solid ground along the edge, so it can't run on an island in the sea")
+            return {"CANCELLED"}
         build_railway(context.scene, world, settings.train_cars, settings.train_seconds)
         _refresh_lights(context)
         settings.status = "A train serves the station. Press Space to watch"

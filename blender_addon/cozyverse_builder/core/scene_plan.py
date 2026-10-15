@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 
+from .terrain_spec import TERRAIN_KINDS, WATER_KINDS, infer_terrain, infer_water
+
 
 WORLD_TYPES = {"VILLAGE", "CITY", "CAFE", "NATURE", "SPACE_OUTPOST", "MARKET", "FARM", "FANTASY"}
 BASE_SHAPES = {"ROUNDED_RECT", "CIRCLE", "ISLAND"}
@@ -25,6 +27,8 @@ class ScenePlan:
     include_road: bool
     camera_type: str
     prompt: str
+    water: str = "NONE"
+    terrain: str = "FLAT"
 
     def validate(self) -> None:
         if self.schema_version != "1.0":
@@ -33,6 +37,8 @@ class ScenePlan:
             raise ValueError("Scene plan requires a title and prompt")
         if self.world_type not in WORLD_TYPES:
             raise ValueError("Unsupported world type")
+        if self.water not in WATER_KINDS or self.terrain not in TERRAIN_KINDS:
+            raise ValueError("Unsupported water or terrain")
         if self.base_shape not in BASE_SHAPES or self.camera_type not in CAMERA_TYPES:
             raise ValueError("Unsupported base or camera configuration")
         for value in (self.architecture_count, self.prop_count, self.vegetation_count, self.character_count):
@@ -53,9 +59,16 @@ def infer_world_type(prompt: str) -> str:
         ("FARM", ("farm", "barn", "field")),
         ("CITY", ("city", "urban", "street", "neighborhood")),
         ("FANTASY", ("fantasy", "wizard", "magic", "castle")),
-        ("NATURE", ("forest", "nature", "river", "island", "landscape")),
+        ("NATURE", ("forest", "nature", "landscape")),
     )
-    return next((kind for kind, words in rules if any(word in value for word in words)), "VILLAGE")
+    found = next((kind for kind, words in rules if any(word in value for word in words)), None)
+    if found:
+        return found
+    # A river or island on its own is scenery; with a settlement it is a place to live.
+    settlement = ("village", "town", "harbor", "harbour", "port", "house", "home", "cottage", "inn", "hamlet", "settlement", "bakery", "shop", "lighthouse")
+    if any(word in value for word in ("river", "island", "lake", "pond", "stream", "creek", "mountain", "hill")) and not any(word in value for word in settlement):
+        return "NATURE"
+    return "VILLAGE"
 
 
 def proposed_plan(prompt: str, style_id: str) -> ScenePlan:
@@ -70,7 +83,8 @@ def proposed_plan(prompt: str, style_id: str) -> ScenePlan:
         "FARM": (2, 7, 8, 2, True),
     }.get(world_type, (3, 6, 6, 2, True))
     architecture, props, vegetation, characters, road = counts
-    return ScenePlan("1.0", title, world_type, style_id, "ROUNDED_RECT", architecture, props, vegetation, characters, road, "ORTHO", prompt.strip())
+    water = infer_water(prompt)
+    return ScenePlan("1.0", title, world_type, style_id, "ISLAND" if water == "SEA" else "ROUNDED_RECT", architecture, props, vegetation, characters, road, "ORTHO", prompt.strip(), water, infer_terrain(prompt))
 
 
 def parse_plan(payload: str) -> ScenePlan:

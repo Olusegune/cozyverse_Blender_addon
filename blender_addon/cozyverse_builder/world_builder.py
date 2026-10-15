@@ -13,6 +13,8 @@ from .atmosphere import RAIN_NAME, SNOW_NAME, SUN_NAME, WIND_NAME, apply_atmosph
 from .core.style_spec import STYLE_PRESETS
 from .core.composition_spec import layout_points, profile_for, prompt_seed
 from .life import apply_life
+from . import terrain as terrain_builder
+from .core import terrain_spec
 from .materials import create_material
 
 
@@ -289,25 +291,72 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
     root["cv_layout_seed"] = str(prompt_seed(seed_prompt, world_type))
     root["cv_variation"] = int(variation)
 
+    water_kind = plan.get("water", "NONE")
+    terrain_kind = plan.get("terrain", "FLAT")
+    seed32 = prompt_seed(seed_prompt, world_type) & 0xFFFFFFFF
+    stage = terrain_spec.stage_for(water_kind)
+    zone = terrain_spec.build_zone(water_kind, seed32, stage)
+    hills = terrain_spec.hills_for(seed32, stage, water_kind) if terrain_kind == "HILLS" else []
+    sculpted = water_kind != "NONE" or terrain_kind != "FLAT"
+    on_island = water_kind == "SEA"
+    root["cv_water"] = water_kind
+    root["cv_terrain"] = terrain_kind
+
     base_shape = plan.get("base_shape", "ROUNDED_RECT")
-    if base_shape == "CIRCLE":
+    if sculpted:
+        land = terrain_builder.create_terrain_material(style.palette)
+        terrain_object = terrain_builder.build_terrain(base_collection, stage, terrain_kind, zone, hills, seed32, land)
+        _mark(terrain_object, "CV_Diorama_Base")
+        if zone is not None:
+            water_object = terrain_builder.build_water(base_collection, zone, stage, terrain_builder.create_water_material(scene))
+            _mark(water_object, "CV_Water")
+            water_object["cv_water"] = water_kind
+            if water_kind == "RIVER":
+                bridge_x = -1.3 if zone["phase"] < math.pi else 1.3
+                bridge_y = zone["y0"] + zone["amp"] * math.sin(zone["freq"] * bridge_x + zone["phase"])
+                half_span = zone["half_width"] + 0.5
+                _cube("CV_Bridge_Deck", (bridge_x, bridge_y, 0.04), (0.42, half_span, 0.05), base_collection, wood, 0.03)
+                for side in (-1, 1):
+                    _cube(f"CV_Bridge_Rail{1 if side < 0 else 2}", (bridge_x + side * 0.4, bridge_y, 0.2), (0.03, half_span, 0.1), base_collection, trim, 0.01)
+    elif base_shape == "CIRCLE":
         _cylinder("CV_Diorama_Base", (0.0, 0.0, -0.4), 5.2, 0.8, base_collection, earth)
     else:
         base = _cube("CV_Diorama_Base", (0.0, 0.0, -0.4), (5.7, 4.2, 0.4), base_collection, earth, 0.18)
         if base_shape == "ISLAND":
             base.scale.y = 0.82
             base.rotation_euler.z = math.radians(4)
+    road_cy, road_hw = (-1.0, 0.8) if on_island else (-1.45, 1.05)
     if plan.get("include_road", True):
         if world_type == "SPACE_OUTPOST":
-            _cylinder("CV_Landing_Pad", (0.0, -1.4, 0.08), 2.0, 0.12, base_collection, road)
+            _cylinder("CV_Landing_Pad", (0.0, -0.9 if on_island else -1.4, 0.08), 1.4 if on_island else 2.0, 0.12, base_collection, road)
         elif world_type == "NATURE":
-            _cube("CV_Path", (0.0, -1.2, 0.06), (4.8, 0.48, 0.06), base_collection, wood, 0.12)
+            _cube("CV_Path", (0.0, -1.2, 0.06), (3.2 if on_island else 4.8, 0.48, 0.06), base_collection, wood, 0.12)
         else:
-            _cube("CV_Road", (0.0, -1.45, 0.06), (5.15, 1.05, 0.08), base_collection, road, 0.04)
-            _cube("CV_Sidewalk", (0.0, -0.15, 0.13), (5.15, 0.22, 0.14), base_collection, trim, 0.035)
+            _cube("CV_Road", (0.0, road_cy, 0.06), (stage.road_half, road_hw, 0.08), base_collection, road, 0.04)
+            _cube("CV_Sidewalk", (0.0, road_cy + road_hw + 0.25, 0.13), (stage.road_half, 0.22, 0.14), base_collection, trim, 0.035)
+
+    def _points(zone_name: str, count: int):
+        """Layout points that respect the land: level and dry for buildings, dry for plants."""
+        if not sculpted:
+            return layout_points(seed_prompt, world_type, count, zone_name)
+        margin = {"ARCHITECTURE": 0.8, "PROPS": 0.35, "VEGETATION": 0.25, "CHARACTERS": 0.3}[zone_name]
+        kept = []
+        for x, y, _z in layout_points(seed_prompt, world_type, max(count, 1) * 8, zone_name):
+            x, y = x * stage.scale_x, y * stage.scale_y
+            if zone_name == "VEGETATION":
+                if terrain_spec.is_dry(x, y, margin, terrain_kind, zone, hills, seed32):
+                    kept.append((x, y, max(0.0, terrain_spec.height_at(x, y, terrain_kind, zone, hills, seed32))))
+            elif terrain_spec.is_buildable(x, y, margin, terrain_kind, zone, hills, seed32):
+                kept.append((x, y, 0.0))
+            if len(kept) >= count:
+                break
+        if not kept and zone_name == "ARCHITECTURE" and count > 0:
+            spot = next(((gx / 2, gy / 2) for gy in range(2, -5, -1) for gx in range(-8, 9) if terrain_spec.is_buildable(gx / 2, gy / 2, 0.3, terrain_kind, zone, hills, seed32)), (0.0, 0.0))
+            kept.append((spot[0], spot[1], 0.0))
+        return tuple(kept)
 
     architecture_count = max(1, min(int(plan.get("architecture_count", 1)), 8))
-    architecture_points = layout_points(seed_prompt, world_type, architecture_count, "ARCHITECTURE")
+    architecture_points = _points("ARCHITECTURE", architecture_count)
     hero_slug = profile.hero.replace(" ", "_")
     for index, location in enumerate(architecture_points):
         name = f"CV_Hero_{hero_slug}" if index == 0 else f"CV_{architecture_form.title()}_{index + 1}"
@@ -315,7 +364,7 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
         _build_architecture(architecture_form, name, location, scale, architecture, plaster, roof, trim, glass)
 
     prop_count = max(0, min(int(plan.get("prop_count", 3)), 20))
-    for index, (x, y, _) in enumerate(layout_points(seed_prompt, world_type, prop_count, "PROPS")):
+    for index, (x, y, _) in enumerate(_points("PROPS", prop_count)):
         if profile.prop_form in {"TECH", "MAGIC_PROP"}:
             _cylinder(f"CV_{profile.prop_form.title()}_{index + 1}", (x, y, 0.38), 0.18 + (index % 2) * 0.08, 0.76, props, trim)
             _sphere(f"CV_{profile.prop_form.title()}_{index + 1}_Beacon", (x, y, 0.86), 0.1, props, glass)
@@ -325,14 +374,14 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
             _cube(f"CV_{profile.prop_form.title()}_{index + 1}", (x, y, 0.3), (0.22 + (index % 3) * 0.06, 0.22, 0.3), props, trim if index % 2 else wood, 0.035)
 
     vegetation_count = max(0, min(int(plan.get("vegetation_count", 4)), 16))
-    for index, location in enumerate(layout_points(seed_prompt, world_type, vegetation_count, "VEGETATION")):
+    for index, location in enumerate(_points("VEGETATION", vegetation_count)):
         if profile.vegetation_form == "ALIEN_PLANT":
-            _sphere(f"CV_Alien_Plant_{index + 1}", (location[0], location[1], 0.55), 0.5, vegetation, green, (0.55, 0.55, 1.4))
+            _sphere(f"CV_Alien_Plant_{index + 1}", (location[0], location[1], 0.55 + location[2]), 0.5, vegetation, green, (0.55, 0.55, 1.4))
         else:
             _plant(f"CV_{profile.vegetation_form.title()}_{index + 1}", location, 0.62 + (index % 4) * 0.1, vegetation, wood, green)
 
     character_count = max(0, min(int(plan.get("character_count", 0)), 12))
-    for index, location in enumerate(layout_points(seed_prompt, world_type, character_count, "CHARACTERS")):
+    for index, location in enumerate(_points("CHARACTERS", character_count)):
         _build_character(f"CV_Character_{index + 1}", location, 0.72 + (index % 3) * 0.06, characters, trim if index % 2 else plaster, skin)
 
     sun_data = bpy.data.lights.new(SUN_NAME, "SUN")
@@ -350,9 +399,9 @@ def build_offline_world(scene: bpy.types.Scene, settings, prompt: str, plan: dic
 
     camera_data = bpy.data.cameras.new("CV_Camera")
     camera_data.type = "PERSP" if plan.get("camera_type") == "PERSPECTIVE" else "ORTHO"
-    camera_data.ortho_scale = 13.5
+    camera_data.ortho_scale = stage.ortho
     camera = bpy.data.objects.new("CV_Camera", camera_data)
-    camera.location = profile.camera_location
+    camera.location = tuple(value * stage.camera_scale for value in profile.camera_location)
     if camera_data.type == "PERSP":
         camera_data.lens = 52.0 if world_type in {"CAFE", "MARKET"} else 44.0
     _point_camera(camera, profile.camera_target)

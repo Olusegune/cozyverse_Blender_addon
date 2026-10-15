@@ -142,6 +142,8 @@ def _plan_from_settings(settings) -> ScenePlan:
         settings.plan_include_road,
         settings.plan_camera_type,
         _plan_prompt(settings),
+        settings.plan_water,
+        settings.plan_terrain,
     )
     plan.validate()
     return plan
@@ -534,6 +536,10 @@ class CV_OT_PrepareScenePlan(bpy.types.Operator):
             settings.status = settings.last_error
             return {"CANCELLED"}
         plan = dataclasses.replace(proposed_plan(prompt, settings.preset), prompt=_plan_prompt(settings))
+        water = plan.water if settings.water_choice == "AUTO" else settings.water_choice
+        terrain = plan.terrain if settings.terrain_choice == "AUTO" else settings.terrain_choice
+        plan = dataclasses.replace(plan, water=water, terrain=terrain, base_shape="ISLAND" if water == "SEA" else ("ROUNDED_RECT" if plan.base_shape == "ISLAND" else plan.base_shape))
+        settings.plan_water, settings.plan_terrain = plan.water, plan.terrain
         settings.plan_title = plan.title
         settings.plan_world_type = plan.world_type
         settings.plan_base_shape = plan.base_shape

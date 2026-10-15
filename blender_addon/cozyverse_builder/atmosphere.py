@@ -349,6 +349,11 @@ def apply_atmosphere(scene: bpy.types.Scene, settings) -> bool:
                 if material is None or material in seen_materials:
                     continue
                 seen_materials.add(material)
+                if material.name.startswith("CV_Mat_Water"):
+                    from .terrain import sync_water
+
+                    sync_water(material, settings.season, settings.rain_amount if settings.weather == "RAIN" else 0.0, settings.water_waves)
+                    continue
                 if "cv_dry_roughness" not in material:
                     material["cv_dry_roughness"] = material.roughness
                 sync_roughness(material, max(0.08, float(material["cv_dry_roughness"]) * (1.0 - settings.wetness_amount / 125.0)))

@@ -19,6 +19,8 @@ PLAN_FIELDS = (
     "character_count",
     "include_road",
     "camera_type",
+    "water",
+    "terrain",
     "prompt",
 )
 

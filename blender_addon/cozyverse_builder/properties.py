@@ -323,6 +323,25 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
     clip_buildup: BoolProperty(name="Build the world up", description="Open the clip with the diorama assembling itself", default=True)
     clip_orbit: BoolProperty(name="Orbit the camera", description="Sweep the camera once around the world while it plays", default=True)
     clip_quality: EnumProperty(name="Quality", items=(("HD720", "720p", "1280 x 720, quick"), ("HD1080", "1080p", "1920 x 1080")), default="HD720")
+    plan_water: EnumProperty(
+        name="Water",
+        items=(("NONE", "None", "No water"), ("LAKE", "Lake", "A lake in a back corner"), ("POND", "Pond", "A small pond"), ("RIVER", "River", "A river behind the village"), ("SEA", "Sea and island", "An island surrounded by sea")),
+        default="NONE",
+    )
+    plan_terrain: EnumProperty(name="Land", items=(("FLAT", "Flat", "Level ground"), ("HILLS", "Hills", "Hills around the edges")), default="FLAT")
+    water_choice: EnumProperty(
+        name="Water",
+        description="Automatic reads your description (lake, river, sea...). Pick one to override",
+        items=(("AUTO", "Auto", "Decide from the description"), ("NONE", "None", "No water"), ("LAKE", "Lake", "A lake"), ("POND", "Pond", "A pond"), ("RIVER", "River", "A river"), ("SEA", "Sea", "An island in the sea")),
+        default="AUTO",
+    )
+    terrain_choice: EnumProperty(
+        name="Land",
+        description="Automatic reads your description (hills, mountains...). Pick one to override",
+        items=(("AUTO", "Auto", "Decide from the description"), ("FLAT", "Flat", "Level ground"), ("HILLS", "Hills", "Hills around the edges")),
+        default="AUTO",
+    )
+    water_waves: FloatProperty(name="Waves", description="How much the water ripples. Wind and rain add to it", default=50.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
     stars_amount: FloatProperty(name="Stars", description="How many stars show on a clear night", default=70.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
     ui_advanced: BoolProperty(name="Advanced controls", description="Show every lighting, weather and season control", default=False)
     daycycle_seconds: FloatProperty(name="Length", description="How long one full day and night takes", default=12.0, min=2.0, max=120.0, unit="TIME_ABSOLUTE")

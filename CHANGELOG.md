@@ -2,6 +2,8 @@
 
 ## 0.17.0 Magic Flow
 
+- **Water and terrain**: lakes, ponds, rivers, and a sea around an island, plus hills. The land is one sculpted heightfield slab (real banks, sandy shores, grass-covered hills, rocky faces), and the water is a glassy prism with ripples that move with the timeline, run faster in wind and rain, and freeze to pale ice in winter. Words in the description set them ("lake", "river", "koi pond", "harbor", "island", "mountain"); the Create tab has Water and Land dropdowns to override, and the Review step shows both. Buildings go only on level, dry ground, trees can climb hills, a river gets a little bridge, an island world shrinks its road and cannot take a train. The new Waves slider is on the Mood tab. Worlds without water or hills are built exactly as before.
+- A prompt that mentions a village, harbor or similar next to a river, lake or island is now a settlement; the same words alone are still scenery.
 - **Render a clip** (Shot tab): one button builds the world up while the camera orbits it and renders an MP4 next to your `.blend`, at 720p or 1080p. It reuses the editable build-up and turntable keyframes, so you can retime them first; re-rendering never stacks rigs.
 - **Real thumbnails** for the Library: selecting a model, or pressing the thumbnail button, renders a small preview with the model's true colors in a throwaway scene that leaves nothing behind. It works for `.blend`, `.glb`, `.gltf`, `.fbx` and `.obj`, and skips very large files.
 - Snow now falls as soft round flakes instead of little squares.

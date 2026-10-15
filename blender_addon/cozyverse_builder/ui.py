@@ -118,10 +118,13 @@ def _draw_reads_as(layout: bpy.types.UILayout, settings) -> None:
         return
     plan = proposed_plan(value, settings.preset)
     profile = profile_for(plan.world_type)
+    water = plan.water if settings.water_choice == "AUTO" else settings.water_choice
+    terrain = plan.terrain if settings.terrain_choice == "AUTO" else settings.terrain_choice
+    extras = [label for kind, label in (("LAKE", "lake"), ("POND", "pond"), ("RIVER", "river"), ("SEA", "sea")) if water == kind] + (["hills"] if terrain == "HILLS" else [])
     row = layout.row()
     row.active = False
     row.label(
-        text=f"{profile.label} · {plan.architecture_count} buildings · {plan.prop_count} props",
+        text=f"{profile.label} · {plan.architecture_count} buildings" + (f" · {' + '.join(extras)}" if extras else f" · {plan.prop_count} props"),
         icon="LIGHT",
     )
 
@@ -140,6 +143,9 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     _draw_prompt_field(layout, settings)
     _draw_reads_as(layout, settings)
 
+    land = layout.row(align=True)
+    land.prop(settings, "water_choice", text="Water")
+    land.prop(settings, "terrain_choice", text="Land")
     main = layout.row(align=True)
     main.scale_y = 2.2
     main.operator("cozyverse.conjure", text="Conjure World", icon="WORLD_DATA", depress=True)
@@ -203,6 +209,8 @@ def _draw_review(layout: bpy.types.UILayout, settings) -> None:
     plan.prop(settings, "plan_title")
     plan.prop(settings, "plan_world_type")
     plan.prop(settings, "plan_base_shape")
+    plan.prop(settings, "plan_water")
+    plan.prop(settings, "plan_terrain")
     plan.prop(settings, "plan_camera_type")
     grid = plan.grid_flow(row_major=True, columns=2, align=True)
     grid.prop(settings, "plan_architecture_count")
@@ -307,6 +315,9 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
         sky.prop(settings, "rain_amount", slider=True)
     if settings.weather == "SNOW":
         sky.prop(settings, "snow_amount", slider=True)
+    world = _active_world(settings)
+    if world is not None and world.get("cv_water", "NONE") != "NONE":
+        sky.prop(settings, "water_waves", slider=True)
     sky.prop(settings, "clouds_amount", slider=True)
     sky.prop(settings, "stars_amount", slider=True)
     sky.prop(settings, "fog_amount", slider=True)
