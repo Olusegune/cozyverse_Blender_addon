@@ -17,11 +17,11 @@ from .operators import _log_activity, _plan_from_settings, _prompt_from_settings
 
 TABS = (
     ("CREATE", "Create", "Describe and conjure a world", "MOD_BUILD", 0),
-    ("ATMOSPHERE", "Mood", "Light, time of day, weather and seasons", "LIGHT_SUN", 1),
-    ("SHOT", "Shot", "Frame cinematic cameras and render a postcard", "CAMERA_DATA", 6),
-    ("STORY", "Motion", "Bring the world to life with editable animation", "ACTION", 2),
+    ("ATMOSPHERE", "Atmosphere", "Light, time of day, weather and seasons", "LIGHT_SUN", 1),
+    ("SHOT", "Camera", "Frame cinematic cameras and render a postcard", "CAMERA_DATA", 6),
+    ("STORY", "Animation", "Bring the world to life with editable animation", "ACTION", 2),
     ("GENERATE", "Assets", "Local assets, reference images and 3D generation", "ASSET_MANAGER", 3),
-    ("ACTIVITY", "Activity", "Versions, recovery and the activity log", "INFO", 4),
+    ("ACTIVITY", "Versions", "Versions, recovery and the activity log", "INFO", 4),
     ("SETTINGS", "Settings", "Connections and preferences", "PREFERENCES", 5),
 )
 
@@ -78,6 +78,13 @@ class CV_OT_Conjure(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     remix: BoolProperty(name="Remix", description="Keep the plan and re-roll the layout", default=False, options={"HIDDEN"})
+    review: BoolProperty(name="Review first", description="Stop at the review screen before anything is built", default=False, options={"HIDDEN"})
+
+    @classmethod
+    def description(cls, _context, properties):
+        if properties.review:
+            return "See what will be built, where each thing comes from and what it could cost. Nothing is created until you press Build"
+        return cls.bl_description
 
     def execute(self, context: bpy.types.Context):
         settings = context.scene.cozyverse
@@ -104,8 +111,8 @@ class CV_OT_Conjure(bpy.types.Operator):
             settings.variation = 0
             if bpy.ops.cozyverse.prepare_scene_plan() != {"FINISHED"}:
                 return {"CANCELLED"}
-            if settings.review_before_build:
-                settings.status = "Plan ready. Adjust anything, tick the box, then build"
+            if self.review or settings.review_before_build:
+                settings.status = "Your plan is ready to review"
                 return {"FINISHED"}
         settings.plan_approved = True
         _log_activity(context, "APPROVE", "Plan approved by Conjure; a new version is built and nothing is overwritten")

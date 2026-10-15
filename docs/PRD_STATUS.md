@@ -5,7 +5,7 @@ Written 15 October 2026, following section 13 of `MASTER_PRD.md`. Everything bel
 ## Evidence
 
 - 10 Blender background suites (`tests/blender_*_smoke.py`) and 15 pure-Python suites (`tests/test_*.py`) pass. The Blender suites exercise real scene data, drivers, saving and reopening, not just registered buttons.
-- The add-on validates and builds as an extension package with `blender --command extension validate / build` (`cozyverse_builder-0.17.0.zip`).
+- The add-on validates and builds as an extension package with `blender --command extension validate / build` (`cozyverse_builder-0.18.0.zip`).
 - The panel was driven and screenshotted in the real Blender GUI (Create, Review, Built, Mood, Shot, Motion, Assets tabs, the pie menu). These are my own captures, not a recorded human walkthrough.
 - **Never run against a live service:** Tripo, Meshy, Anthropic and OpenAI-compatible calls. Their request building, response parsing, error handling and key redaction are tested against faked network functions only. Per PRD section 11, real provider tests need your explicit authorisation and a key.
 - `blender_undo_smoke.py` cannot run headless (`ed.undo` needs a UI context), so native Undo is **untested** beyond operators carrying the undo flag.
@@ -22,7 +22,7 @@ Written 15 October 2026, following section 13 of `MASTER_PRD.md`. Everything bel
 | CV-006 Safe edits | partial | Managed collections, working locks, archive instead of delete. Native Undo untested headless. |
 | CV-007 Save and reopen | working | Tested for worlds, drivers, plans, library choices. |
 | CV-008 Assets | working | Multiple folders, recursive scan, search, roles, licences, generated thumbnails. |
-| CV-009 UX verification | partial | Screenshots from the real GUI; no screen recording or human walkthrough. |
+| CV-009 UX verification | partial | 0.18 redesign inspected in the real Blender window (Describe, Prompt Studio, galleries, Review, Create, Atmosphere, Camera); no screen recording or human walkthrough. |
 
 ## P1: intelligent director and creation
 

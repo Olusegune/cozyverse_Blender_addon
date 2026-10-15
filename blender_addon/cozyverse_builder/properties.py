@@ -8,7 +8,7 @@ from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatPrope
 from .core.demo_spec import DEFAULT_PROMPT
 from .core.library_spec import FORWARDS, LICENSES, ROLES
 from .core.style_spec import style_items
-from .visual_assets import icon_id
+from .visual_assets import icon_id, square_id
 
 
 def _update_atmosphere(self, context: bpy.types.Context) -> None:
@@ -64,7 +64,7 @@ _LOOK_PREVIEWS = {
 
 def _style_items_with_previews(_self, _context):
     items = [
-        (identifier, label, description, icon_id(f"style_{identifier.lower()}") or "BRUSH_DATA", index)
+        (identifier, label, description, square_id(f"style_{identifier.lower()}") or "BRUSH_DATA", index)
         for index, (identifier, label, description) in enumerate(style_items())
     ]
     _ENUM_KEEPALIVE["style"] = items
@@ -88,7 +88,7 @@ def _look_items_with_previews(_self, _context):
     items = []
     for index, (identifier, label, description) in enumerate(base):
         key, fallback = _LOOK_PREVIEWS[identifier]
-        items.append((identifier, label, description, (icon_id(key) if key else 0) or fallback, index))
+        items.append((identifier, label, description, (square_id(key) if key else 0) or fallback, index))
     _ENUM_KEEPALIVE["look"] = items
     return items
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.18.0 Guided Flow
+
+A redesign of the sidebar around three clear steps. See `docs/UX_REDESIGN.md` for the audit, wireframes and reasoning.
+
+- **Describe, Review, Create**: three labelled step buttons at the top, with one dominant action per step (Review My World, Build My World, then Customize). Builds still never overwrite anything.
+- **Your whole description is visible**, wrapped to the sidebar width, with a word count. **Write** opens a Prompt Studio: a large, word-wrapped editor beside the 3D view with its own panel (Done, Done then review, Guide me, ideas). Done closes it again.
+- **Square previews** (`tools/make_square_previews.py`, `assets/square/`): your artwork is centre-cropped into square images so Blender's square preview cells are filled edge to edge instead of letterboxed with empty bars. Used by idea cards, styles, looks, shots and story previews.
+- **Galleries**: See all ideas and Compare styles open large pop-up galleries; one click chooses and closes.
+- **Review in plain words**: what will be built, where each thing comes from (your library, built here, or could be generated, with an optional credit total), and a collapsed Adjust the plan. The separate approval tick is gone; Build My World is the approval.
+- **Create screen**: a success card and a labelled Customize grid (Atmosphere, Camera, Animation, Assets, Versions, Select and frame). Tool pages have labelled navigation with a way back; the seven-icon strip is gone. Settings is the gear at the top.
+- Quieter wording: AI planning shows a calm "off" state with a button to Settings; revision counts are plain sentences.
+- New operators: `goto_step`, `build_reviewed`, `set_style`, `style_gallery`, `idea_gallery`, `prompt_studio`, `prompt_studio_done`; Conjure gained a `review` option. New test `tests/blender_ux_smoke.py`.
+
 ## 0.17.0 Magic Flow
 
 - **Live provider checker** (`tools/live_provider_check.py`, `docs/LIVE_TEST.md`): a standalone, confirm-first way to try one real AI plan, one real follow-up, and one capped real Tripo or Meshy generation. Keys come only from environment variables and are never printed; spending is capped; downloads are limited to approved hosts and checked for a valid GLB. Tested offline with a faked network.

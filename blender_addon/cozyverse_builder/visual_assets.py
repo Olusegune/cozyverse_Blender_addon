@@ -29,6 +29,14 @@ FILES = {
 }
 
 
+SQUARE_GROUPS = {"template": "templates", "style": "styles", "atmosphere": "atmosphere", "season": "seasons", "story": "story", "cinematic": "cinematic"}
+
+
+def _square_path(key: str):
+    group = SQUARE_GROUPS.get(key.split("_", 1)[0])
+    return _ROOT / "square" / group / f"{key}.jpg" if group else None
+
+
 def register() -> None:
     global _PREVIEWS
     if _PREVIEWS is not None:
@@ -38,6 +46,9 @@ def register() -> None:
         path = _ROOT / relative
         if path.is_file():
             _PREVIEWS.load(key, str(path), "IMAGE")
+        square = _square_path(key)
+        if square is not None and square.is_file():
+            _PREVIEWS.load(f"sq_{key}", str(square), "IMAGE")
 
 
 def unregister() -> None:
@@ -51,3 +62,10 @@ def icon_id(key: str) -> int:
     if _PREVIEWS is None or key not in _PREVIEWS:
         return 0
     return _PREVIEWS[key].icon_id
+
+
+def square_id(key: str) -> int:
+    """Edge-to-edge square preview when bundled, otherwise the original (letterboxed) artwork."""
+    if _PREVIEWS is not None and f"sq_{key}" in _PREVIEWS:
+        return _PREVIEWS[f"sq_{key}"].icon_id
+    return icon_id(key)
