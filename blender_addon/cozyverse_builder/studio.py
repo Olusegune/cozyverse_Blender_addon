@@ -111,13 +111,16 @@ class CV_OT_StyleGallery(bpy.types.Operator):
 
     def draw(self, context: bpy.types.Context) -> None:
         current = context.scene.cozyverse.preset
+        # A larger interface scale makes the pop-up taller; shrink the pictures so every row still fits on screen.
+        ui = max(1.0, float(context.preferences.view.ui_scale))
+        size = 7.0 if ui <= 1.3 else max(4.0, 7.0 - (ui - 1.3) * 4.0)
         self.layout.label(text="Style Studio: choose how your world looks")
         grid = self.layout.grid_flow(row_major=True, columns=4, even_columns=True, even_rows=False, align=False)
         for identifier, preset in STYLE_PRESETS.items():
             card = grid.column(align=True)
             key = f"style_{identifier.lower()}"
             if square_id(key):
-                card.template_icon(icon_value=square_id(key), scale=7.0)
+                card.template_icon(icon_value=square_id(key), scale=size)
             button = card.operator("cozyverse.set_style", text=preset.label, depress=identifier == current)
             button.style = identifier
             note = card.column(align=True)
