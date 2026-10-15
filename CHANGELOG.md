@@ -2,6 +2,7 @@
 
 ## 0.17.0 Magic Flow
 
+- **Live provider checker** (`tools/live_provider_check.py`, `docs/LIVE_TEST.md`): a standalone, confirm-first way to try one real AI plan, one real follow-up, and one capped real Tripo or Meshy generation. Keys come only from environment variables and are never printed; spending is capped; downloads are limited to approved hosts and checked for a valid GLB. Tested offline with a faked network.
 - **The Director** (follows PRD CV-104). Conjure now plans through a validated **Scene Blueprint**: kind of world, water and hills, mood and weather, motion (cars, train, build-up), counts, and the specific things you named. Planning works offline and deterministically. After the build the plan applies its mood and motion, **uses your own library models first**, builds simple stand-ins for the rest, and lists unique things that "could be generated" with an estimated cost and a button that fills in the 3D asset factory (nothing is sent or charged there without your review).
 - **Review shows the plan**: its source, what it will build, where each thing comes from, and warnings.
 - **Ask the Director** (after a build): free-text follow-ups become a short list of allowlisted commands (mood, weather, season, camera, motion, add, archive, move, scale, new version), shown as a preview you Apply or Discard. Locked objects are never touched, removals are archived (restorable), and Undo reverses it all. "More flowers; less clutter; warmer" works as the PRD's golden example.

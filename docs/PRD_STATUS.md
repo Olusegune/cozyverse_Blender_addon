@@ -54,6 +54,10 @@ Written 15 October 2026, following section 13 of `MASTER_PRD.md`. Everything bel
 - Image understanding is only as good as the model you choose; nothing here reconstructs geometry from a picture.
 - The sidebar is narrow; a few labels shorten in the Blender UI.
 
+## Live provider testing
+
+`tools/live_provider_check.py` (see `docs/LIVE_TEST.md`) runs one real planning call, one real follow-up call, and one capped real 3D generation. It reads keys only from environment variables, shows exactly what would be sent, and needs a typed YES. Its own logic is tested offline (`tests/test_live_provider_check.py`); **it has not yet been run against a live service**, because no key was available on this machine.
+
 ## Proposed next single milestone
 
 Run a **real provider test with your authorisation** (one Anthropic or OpenAI-compatible plan call, then one Tripo or Meshy generation within a small credit cap), and fix whatever the live services reveal. After that: batch generation from the Director's plan.
