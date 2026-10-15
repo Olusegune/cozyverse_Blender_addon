@@ -46,6 +46,16 @@ def _wrapped_lines(value: str, width: int = 34, limit: int = 5) -> list[str]:
     return lines
 
 
+_WIDTH = [40]
+
+
+def _say(layout: bpy.types.UILayout, text: str, icon: str = "", limit: int = 4) -> None:
+    """A label that wraps to the sidebar width instead of being cut off with an ellipsis."""
+    column = layout.column(align=True)
+    for index, line in enumerate(_wrapped_lines(text, _WIDTH[0], limit)):
+        column.label(text=line, **({"icon": icon} if icon and index == 0 else {}))
+
+
 def _addon_preferences(context: bpy.types.Context):
     entry = context.preferences.addons.get(__package__)
     return entry.preferences if entry else None
@@ -149,7 +159,7 @@ def _draw_tool_nav(layout: bpy.types.UILayout, context, settings) -> None:
     title = next((tab for tab in TABS if tab[0] == settings.active_tab), TABS[0])
     heading = layout.row()
     heading.active = False
-    heading.label(text=title[2])
+    _say(heading, title[2])
 
 
 def _draw_prompt_card(layout: bpy.types.UILayout, settings, context) -> None:
@@ -235,7 +245,7 @@ def _draw_world_options(layout: bpy.types.UILayout, settings, context) -> None:
         body.prop(settings, "director_send_image")
     quiet = body.row()
     quiet.active = False
-    quiet.label(text="Alt+W pie menu · Shift+Alt+W quick build")
+    _say(quiet, "Alt+W pie menu · Shift+Alt+W quick build")
 
 
 def _draw_create(layout: bpy.types.UILayout, settings, context=None) -> None:
@@ -279,10 +289,10 @@ def _draw_what_gets_built(layout: bpy.types.UILayout, settings, blueprint) -> No
     box = layout.box()
     box.label(text="What will be built")
     grid = box.grid_flow(row_major=True, columns=2, even_columns=True, align=True)
-    grid.label(text=f"{settings.plan_architecture_count} buildings", icon="HOME")
+    _say(grid, f"{settings.plan_architecture_count} buildings", icon="HOME")
     grid.label(text=f"{settings.plan_prop_count} props", icon="MESH_CUBE")
-    grid.label(text=f"{settings.plan_vegetation_count} plants", icon="OUTLINER_OB_FORCE_FIELD")
-    grid.label(text=f"{settings.plan_character_count} people", icon="USER")
+    _say(grid, f"{settings.plan_vegetation_count} plants", icon="OUTLINER_OB_FORCE_FIELD")
+    _say(grid, f"{settings.plan_character_count} people", icon="USER")
     grid.label(text=_WATER_WORDS.get(settings.plan_water, settings.plan_water.title()), icon="MOD_OCEAN")
     grid.label(text=_LAND_WORDS.get(settings.plan_terrain, settings.plan_terrain.title()), icon="WORLD")
     if settings.plan_include_road:
@@ -307,7 +317,7 @@ def _draw_sources(layout: bpy.types.UILayout, context, settings, blueprint) -> N
     if not rows:
         quiet = box.row()
         quiet.active = False
-        quiet.label(text="Everything is built here, procedurally.")
+        _say(quiet, "Everything is built here, procedurally.")
     icons = {"LIBRARY": "CHECKMARK", "PROCEDURAL": "MESH_CUBE", "GENERATE": "URL"}
     words = {"LIBRARY": "your library", "PROCEDURAL": "built here", "GENERATE": "could be generated"}
     credits = 0
@@ -326,19 +336,19 @@ def _draw_sources(layout: bpy.types.UILayout, context, settings, blueprint) -> N
             op.description = row["description"]
     if credits:
         cost = box.row()
-        cost.label(text=f"Optional external cost: about {credits} credits", icon="INFO")
+        _say(cost, f"Optional external cost: about {credits} credits", icon="INFO")
     for warning in blueprint.warnings:
         note = box.row()
         note.alert = True
-        note.label(text=warning[:60], icon="ERROR")
+        _say(note, warning, icon="ERROR")
     if ai:
         sent = box.row()
         sent.active = False
-        sent.label(text="Only your description left this computer.", icon="LOCKED")
+        _say(sent, "Only your description left this computer.", icon="LOCKED")
     if settings.director_status:
         status = box.row()
         status.active = False
-        status.label(text=settings.director_status[:60])
+        _say(status, settings.director_status)
 
 
 def _draw_review(layout: bpy.types.UILayout, settings, context=None) -> None:
@@ -382,10 +392,10 @@ def _draw_review(layout: bpy.types.UILayout, settings, context=None) -> None:
         body.operator("cozyverse.style_gallery", text=f"Style: {style.label if style else 'Choose'}", icon="BRUSH_DATA")
         if settings.revision_source_world:
             changes = body.box()
-            changes.label(text=f"Updating {settings.revision_source_world}", icon="OUTLINER_COLLECTION")
-            changes.label(text=f"{settings.revision_created} new, {settings.revision_changed} updated, {settings.revision_skipped} kept as they are")
+            _say(changes, f"Updating {settings.revision_source_world}", icon="OUTLINER_COLLECTION")
+            _say(changes, f"{settings.revision_created} new, {settings.revision_changed} updated, {settings.revision_skipped} kept as they are")
             if settings.revision_protected or settings.revision_manual_edits:
-                changes.label(text=f"{settings.revision_protected} protected, {settings.revision_manual_edits} hand-edited and kept", icon="LOCKED")
+                _say(changes, f"{settings.revision_protected} protected, {settings.revision_manual_edits} hand-edited and kept", icon="LOCKED")
         body.operator("cozyverse.refresh_revision_preview", text="Refresh the plan", icon="FILE_REFRESH")
 
     main = layout.row()
@@ -404,11 +414,11 @@ def _draw_built(layout: bpy.types.UILayout, settings, world, context=None) -> No
     count = hero.row()
     count.active = False
     style = world.get("cv_style_label")
-    count.label(text=f"{settings.plan_title or world.name} · {len(objects)} objects")
+    _say(count, f"{settings.plan_title or world.name} · {len(objects)} objects")
     if style:
         sub = hero.row()
         sub.active = False
-        sub.label(text=f"{world.get('cv_composition_label', 'World')} in {style}")
+        _say(sub, f"{world.get('cv_composition_label', 'World')} in {style}")
 
     layout.label(text="Customize your world")
     grid = layout.grid_flow(row_major=True, columns=2, even_columns=True, align=True)
@@ -438,7 +448,7 @@ def _draw_built(layout: bpy.types.UILayout, settings, world, context=None) -> No
         row.operator("cozyverse.inspect_manual_edits", text="Check Edits", icon="UV_SYNC_SELECT")
         body.operator("cozyverse.create_checkpoint", text="Save a Recovery Checkpoint", icon="RECOVER_LAST")
         if settings.checkpoint_path:
-            body.label(text="Checkpoint saved next to your .blend", icon="FILE_TICK")
+            _say(body, "Checkpoint saved next to your .blend", icon="FILE_TICK")
         note = body.row()
         note.active = False
         note.label(text="Hand edits are never overwritten.")
@@ -473,9 +483,9 @@ def _draw_director_report(layout: bpy.types.UILayout, settings) -> None:
     if body is None:
         return
     for note in report.get("notes", []):
-        body.label(text=note[:60], icon="CHECKMARK")
+        _say(body, note, icon="CHECKMARK")
     if report.get("procedural"):
-        body.label(text=f"Built here: {', '.join(report['procedural'])[:50]}", icon="MESH_CUBE")
+        _say(body, f"Built here: {', '.join(report['procedural'])[:50]}", icon="MESH_CUBE")
     for item in report.get("generate", []):
         row = body.row()
         row.label(text=item["description"][:30], icon="URL")
@@ -506,11 +516,11 @@ def _draw_followup(layout: bpy.types.UILayout, settings) -> None:
         box = body.box()
         box.label(text="This would:", icon="CHECKMARK" if preview["lines"] else "ERROR")
         for line in preview["lines"]:
-            box.label(text=line[:58])
+            _say(box, line)
         for note in preview.get("notes", []):
             hint = box.row()
             hint.active = False
-            hint.label(text=note[:58])
+            _say(hint, note)
         if preview["lines"]:
             actions = box.row(align=True)
             actions.scale_y = 1.4
@@ -518,7 +528,7 @@ def _draw_followup(layout: bpy.types.UILayout, settings) -> None:
             actions.operator("cozyverse.director_discard", text="Discard", icon="X")
             locks = box.row()
             locks.active = False
-            locks.label(text="Locked items stay put. Ctrl+Z undoes this.", icon="LOCKED")
+            _say(locks, "Locked items stay put. Ctrl+Z undoes this.", icon="LOCKED")
     if settings.director_result_json:
         try:
             results = json.loads(settings.director_result_json)
@@ -528,12 +538,12 @@ def _draw_followup(layout: bpy.types.UILayout, settings) -> None:
         for line in results:
             row = box.row()
             row.active = line.startswith("Done")
-            row.label(text=line[:60], icon="CHECKMARK" if line.startswith("Done") else "INFO")
+            _say(row, line, icon="CHECKMARK" if line.startswith("Done") else "INFO")
         box.operator("cozyverse.director_discard", text="Dismiss", icon="X")
     if settings.director_status and not settings.director_preview_json:
         note = body.row()
         note.active = False
-        note.label(text=settings.director_status[:60])
+        _say(note, settings.director_status)
     body.operator("cozyverse.director_restore", text="Bring back archived items", icon="LOOP_BACK")
 
 
@@ -580,7 +590,7 @@ def _draw_atmosphere(layout: bpy.types.UILayout, settings) -> None:
     header.label(text="Animate a day", icon="TIME")
     if body is not None:
         if bpy.context.scene.get("cv_daycycle"):
-            body.label(text="The sky runs through a full day. Press Space.", icon="CHECKMARK")
+            _say(body, "The sky runs through a full day. Press Space.", icon="CHECKMARK")
             body.operator("cozyverse.daycycle_remove", text="Remove Day Cycle", icon="X")
         else:
             body.prop(settings, "daycycle_seconds")
@@ -645,13 +655,13 @@ def _draw_shot(layout: bpy.types.UILayout, context: bpy.types.Context, settings)
     header.label(text="Turntable", icon="ORIENTATION_GIMBAL")
     if body is not None:
         if _turntable_for(_active_world(settings)) is not None:
-            body.label(text="The camera orbits the world on a loop.", icon="CHECKMARK")
+            _say(body, "The camera orbits the world on a loop.", icon="CHECKMARK")
             row = body.row(align=True)
             row.operator("cozyverse.turntable", text="Rebuild", icon="FILE_REFRESH")
             row.operator("cozyverse.clear_turntable", text="Remove", icon="X")
             hint = body.row()
             hint.active = False
-            hint.label(text="Press Space to play. Keyframes are editable.")
+            _say(hint, "Press Space to play. Keyframes are editable.")
         else:
             body.prop(settings, "turntable_frames")
             body.operator("cozyverse.turntable", text="Add Turntable", icon="ORIENTATION_GIMBAL")
@@ -666,13 +676,13 @@ def _draw_shot(layout: bpy.types.UILayout, context: bpy.types.Context, settings)
         clip.operator("cozyverse.render_clip", text="Render Clip", icon="RENDER_ANIMATION", depress=True)
         note = body.row()
         note.active = False
-        note.label(text="Saved as an MP4 next to your .blend.")
+        _say(note, "Saved as an MP4 next to your .blend.")
     post = layout.column(align=True)
     post.scale_y = 1.9
     post.operator("cozyverse.render_postcard", text="Render Postcard", icon="RENDER_STILL")
     note = layout.row()
     note.active = False
-    note.label(text="Set the Mood first; it shows in renders.")
+    _say(note, "Set the Atmosphere first; it shows in renders.")
 
 
 def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
@@ -682,7 +692,7 @@ def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
     source.operator("cozyverse.select_reference_image", text="Choose Reference Image", icon="FILE_IMAGE")
     if settings.reference_image is not None:
         source.template_ID_preview(settings, "reference_image", rows=4, cols=5, hide_buttons=True)
-        source.label(text=f"{settings.reference_image.size[0]} × {settings.reference_image.size[1]} pixels")
+        _say(source, f"{settings.reference_image.size[0]} × {settings.reference_image.size[1]} pixels")
     elif icon_id("empty_no_image"):
         source.template_icon(icon_value=icon_id("empty_no_image"), scale=5.0)
     analysis = layout.box()
@@ -702,9 +712,9 @@ def _draw_image_to_world(layout: bpy.types.UILayout, settings) -> None:
     build.operator("cozyverse.recreate_reference_mock", text="CREATE EDITABLE INTERPRETATION", icon="MOD_BUILD")
     note = layout.box()
     note.label(text="Current scope", icon="INFO")
-    note.label(text="Uses palette, aspect, brightness, contrast and focal cues")
-    note.label(text="Approximation only — it does not recognize exact objects")
-    note.label(text="All generated parts remain normal editable Blender data")
+    _say(note, "Uses palette, aspect, brightness, contrast and focal cues")
+    _say(note, "Approximation only — it does not recognize exact objects")
+    _say(note, "All generated parts remain normal editable Blender data")
 
 
 def _draw_life(layout: bpy.types.UILayout, settings) -> None:
@@ -717,7 +727,7 @@ def _draw_life(layout: bpy.types.UILayout, settings) -> None:
         column.prop(settings, "life_flicker", slider=True)
         note = body.row()
         note.active = False
-        note.label(text="Wind (Mood tab) adds to the sway.")
+        _say(note, "Wind (Atmosphere tab) adds to the sway.")
         body.operator("cozyverse.life_refresh", text="Re-apply to this world", icon="FILE_REFRESH")
 
 
@@ -737,7 +747,7 @@ def _draw_buildup(layout: bpy.types.UILayout, settings) -> None:
         row.operator("cozyverse.buildup_add", text="Play Build-Up", icon="PLAY", depress=True)
         note = body.row()
         note.active = False
-        note.label(text="The world assembles itself on an editable timeline.")
+        _say(note, "The world assembles itself on an editable timeline.")
     else:
         body.label(text="Press Space to watch it.", icon="CHECKMARK")
         row = body.row(align=True)
@@ -782,7 +792,7 @@ def _draw_vehicles(layout: bpy.types.UILayout, settings) -> None:
         row.operator("cozyverse.railway_remove", text="Remove", icon="X")
     note = body.row()
     note.active = False
-    note.label(text="They loop forever. Press Space to play.")
+    _say(note, "They loop forever. Press Space to play.")
 
 
 def _draw_story(layout: bpy.types.UILayout, settings) -> None:
@@ -792,7 +802,7 @@ def _draw_story(layout: bpy.types.UILayout, settings) -> None:
     layout.separator()
     hero = layout.box()
     hero.label(text="STORY MOMENTS", icon_value=icon_id("icon_story_dark"))
-    hero.label(text=f"Target: {settings.active_world_name or 'Build or select a world'}", icon="OUTLINER_COLLECTION")
+    _say(hero, f"Target: {settings.active_world_name or 'Build or select a world'}", icon="OUTLINER_COLLECTION")
     preview_key = f"story_{settings.story_preset.lower()}"
     if square_id(preview_key):
         hero.template_icon(icon_value=square_id(preview_key), scale=11.0)
@@ -802,16 +812,16 @@ def _draw_story(layout: bpy.types.UILayout, settings) -> None:
     row = timing.row(align=True)
     row.prop(settings, "story_start_frame")
     row.prop(settings, "story_end_frame")
-    timing.label(text="24 fps • deterministic three-key loop", icon="INFO")
+    _say(timing, "24 fps • deterministic three-key loop", icon="INFO")
     review = layout.box()
     review.label(text="REVIEW BEFORE ANIMATING", icon="PREVIEW_RANGE")
     review.operator("cozyverse.preview_story", text="PREVIEW STORY PLAN", icon="VIEWZOOM")
     if settings.story_preview_json:
         metrics = review.grid_flow(row_major=True, columns=2, align=True)
-        metrics.label(text=f"Targets: {settings.story_target_count}", icon="OBJECT_DATA")
-        metrics.label(text=f"Keyframes: {settings.story_keyframe_count}", icon="KEYFRAME")
-        metrics.label(text=f"Skipped: {settings.story_skipped_count}", icon="LOCKED")
-        metrics.label(text=f"Frames: {settings.story_start_frame}–{settings.story_end_frame}", icon="TIME")
+        _say(metrics, f"Targets: {settings.story_target_count}", icon="OBJECT_DATA")
+        _say(metrics, f"Keyframes: {settings.story_keyframe_count}", icon="KEYFRAME")
+        _say(metrics, f"Skipped: {settings.story_skipped_count}", icon="LOCKED")
+        _say(metrics, f"Frames: {settings.story_start_frame}–{settings.story_end_frame}", icon="TIME")
         review.prop(settings, "story_approved", icon="CHECKMARK")
     review.label(text=settings.story_status, icon="INFO")
     actions = layout.row(align=True)
@@ -823,10 +833,10 @@ def _draw_story(layout: bpy.types.UILayout, settings) -> None:
     clear_column.enabled = bool(settings.story_active_id)
     clear_column.operator("cozyverse.clear_story", text="Clear", icon="X")
     safety = layout.box()
-    safety.label(text="Native editable Actions and keyframes", icon="ACTION")
-    safety.label(text="Protected or already animated objects are skipped", icon="LOCKED")
+    _say(safety, "Native editable Actions and keyframes", icon="ACTION")
+    _say(safety, "Protected or already animated objects are skipped", icon="LOCKED")
     if settings.life_enabled:
-        safety.label(text="Flickering lamps are left to Ambient life", icon="LIGHT_POINT")
+        _say(safety, "Flickering lamps are left to Ambient life", icon="LIGHT_POINT")
     safety.label(text="Preview never changes the scene")
 
 
@@ -834,7 +844,7 @@ def _draw_asset_library(context: bpy.types.Context, layout: bpy.types.UILayout, 
     preferences = _addon_preferences(context)
     source = layout.box()
     source.label(text="LOCAL ASSET CATALOG", icon="ASSET_MANAGER")
-    source.label(text="Your files are preferred before paid generation.", icon="LOCKED")
+    _say(source, "Your files are preferred before paid generation.", icon="LOCKED")
     if preferences is not None:
         source.prop(preferences, "include_blender_asset_libraries")
         source.prop(preferences, "custom_asset_folder")
@@ -848,9 +858,9 @@ def _draw_asset_library(context: bpy.types.Context, layout: bpy.types.UILayout, 
     search.operator("cozyverse.match_local_assets", text="FIND BEST MATCHES", icon="SORTSIZE")
 
     results = layout.box()
-    results.label(text=f"RESULTS ({len(settings.asset_items)})", icon="PRESET")
+    _say(results, f"RESULTS ({len(settings.asset_items)})", icon="PRESET")
     if not settings.asset_items:
-        results.label(text="Index a folder or Blender Asset Library to begin.")
+        _say(results, "Index a folder or Blender Asset Library to begin.")
     for index, item in enumerate(settings.asset_items[:10]):
         row = results.row(align=True)
         icon = "RADIOBUT_ON" if settings.asset_index == index else "RADIOBUT_OFF"
@@ -865,7 +875,7 @@ def _draw_asset_library(context: bpy.types.Context, layout: bpy.types.UILayout, 
         detail = layout.box()
         detail.label(text="SELECTED ASSET", icon="FILE_3D")
         detail.label(text=item.name)
-        detail.label(text=f"{item.category.title()} • {item.extension.upper().lstrip('.')} • {item.source.replace('_', ' ').title()}")
+        _say(detail, f"{item.category.title()} • {item.extension.upper().lstrip('.')} • {item.source.replace('_', ' ').title()}")
         for line in _wrapped_lines(item.tags, width=40, limit=2):
             detail.label(text=line, icon="TAG")
         placement = detail.box()
@@ -879,7 +889,7 @@ def _draw_asset_library(context: bpy.types.Context, layout: bpy.types.UILayout, 
         place.enabled = settings.asset_placement_approved and bool(settings.asset_preview_name)
         place.scale_y = 1.35
         place.operator("cozyverse.place_approved_asset", text="IMPORT APPROVED ASSET", icon="IMPORT")
-        detail.label(text="Import destination: CV_IMPORTED_ASSETS", icon="OUTLINER_COLLECTION")
+        _say(detail, "Import destination: CV_IMPORTED_ASSETS", icon="OUTLINER_COLLECTION")
 
 
 def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
@@ -893,7 +903,7 @@ def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
     if settings.last_demo_prompt:
         history = layout.box()
         history.label(text="LATEST BUILD", icon="TIME")
-        history.label(text=settings.last_demo_prompt[:72])
+        _say(history, settings.last_demo_prompt)
     versions = layout.box()
     versions.label(text="WORLD VERSIONS", icon="OUTLINER_COLLECTION")
     worlds = [collection for collection in bpy.data.collections if collection.get("cv_managed") and collection.name.startswith("CV_WORLD")]
@@ -906,7 +916,7 @@ def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
         visibility = row.operator("cozyverse.archive_world", text="", icon="HIDE_ON" if not world.hide_viewport else "HIDE_OFF")
         visibility.world_name = world.name
         visibility.hidden = not world.hide_viewport
-    versions.label(text="Hide is reversible; versions are never deleted here.", icon="INFO")
+    _say(versions, "Hide is reversible; versions are never deleted here.", icon="INFO")
     recovery = layout.box()
     recovery.label(text="RECOVERY", icon="RECOVER_LAST")
     recovery.operator("cozyverse.create_checkpoint", text="Create Project Checkpoint", icon="FILE_BACKUP")
@@ -915,11 +925,11 @@ def _draw_activity(layout: bpy.types.UILayout, settings) -> None:
     log = layout.box()
     log.label(text="REDACTED ACTIVITY LOG", icon="TEXT")
     if not settings.activity_log:
-        log.label(text="No recorded milestone operations yet")
+        _say(log, "No recorded milestone operations yet")
     for item in reversed(list(settings.activity_log)[-8:]):
         row = log.row(align=True)
         row.label(text=item.level, icon="ERROR" if item.level == "ERROR" else "DOT")
-        row.label(text=item.message[:58])
+        _say(row, item.message)
 
 
 def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, settings) -> None:
@@ -928,7 +938,7 @@ def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, setti
     hero = layout.box()
     hero.label(text="3D ASSET FACTORY", icon="MESH_ICOSPHERE")
     hero.label(text=f"Provider: {provider_name.title()}")
-    hero.label(text="Check local assets before paid generation", icon="INFO")
+    _say(hero, "Check local assets before paid generation", icon="INFO")
     request = layout.box()
     request.label(text="DESCRIBE ONE MISSING ASSET", icon="TEXT")
     request.prop(settings, "generation_prompt", text="")
@@ -939,8 +949,8 @@ def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, setti
     for line in _wrapped_lines(settings.generation_cost_note, width=36, limit=4):
         review.label(text=line)
     if settings.generation_fingerprint:
-        review.label(text=f"Plan: {settings.generation_fingerprint[:12]}", icon="CHECKMARK")
-        review.label(text=f"Estimated provider charge: {settings.generation_estimated_credits} credits")
+        _say(review, f"Plan: {settings.generation_fingerprint[:12]}", icon="CHECKMARK")
+        _say(review, f"Estimated provider charge: {settings.generation_estimated_credits} credits")
     mock_box = layout.box()
     mock_box.label(text="ZERO-COST WORKFLOW TEST", icon="GHOST_ENABLED")
     mock_box.prop(settings, "generation_approved")
@@ -957,12 +967,12 @@ def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, setti
     submit.enabled = bool(settings.generation_plan_json and settings.generation_live_approved and settings.generation_job_status == "NONE")
     submit.scale_y = 1.3
     submit.operator("cozyverse.submit_live_generation", text="REVIEW & SUBMIT PAID JOB", icon="URL")
-    paid.label(text="Final confirmation dialog required • estimates may change")
+    _say(paid, "Final confirmation dialog required • estimates may change")
     job = layout.box()
     job.label(text="JOB STATUS", icon="SORTTIME")
-    job.label(text=f"{settings.generation_job_status.replace('_', ' ').title()} • {settings.generation_job_progress}%")
+    _say(job, f"{settings.generation_job_status.replace('_', ' ').title()} • {settings.generation_job_progress}%")
     if settings.generation_job_id:
-        job.label(text=f"ID: {settings.generation_job_id[:32]}")
+        _say(job, f"ID: {settings.generation_job_id[:32]}")
     row = job.row(align=True)
     row.operator("cozyverse.refresh_generation_job", text="Refresh", icon="FILE_REFRESH")
     row.operator("cozyverse.cancel_generation_job", text="Cancel", icon="X")
@@ -983,8 +993,8 @@ def _draw_generate(context: bpy.types.Context, layout: bpy.types.UILayout, setti
     promote.operator("cozyverse.promote_generation_asset", text="PROMOTE TO ASSET FACTORY", icon="ASSET_MANAGER")
     boundary = layout.box()
     boundary.label(text="SAFETY BOUNDARY", icon="LOCKED")
-    boundary.label(text="Network work is asynchronous; bpy stays on the main thread")
-    boundary.label(text="Only allowlisted HTTPS GLB results up to 100 MB")
+    _say(boundary, "Network work is asynchronous; bpy stays on the main thread")
+    _say(boundary, "Only allowlisted HTTPS GLB results up to 100 MB")
 
 
 def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> None:
@@ -993,7 +1003,7 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     mode = layout.box()
     mode.label(text="RUNTIME MODE", icon="OPTIONS")
     if preferences is None:
-        mode.label(text="Local demonstration mode is enforced", icon="LOCKED")
+        _say(mode, "Local demonstration mode is enforced", icon="LOCKED")
         return
     mode.prop(preferences, "local_demo_only")
     provider = layout.box()
@@ -1004,9 +1014,9 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
         provider.prop(preferences, "director_base_url")
     intro = provider.column(align=True)
     intro.active = False
-    intro.label(text="Optional. Planning works fully offline.")
-    intro.label(text="With a key, Conjure can ask the AI to draft the plan,")
-    intro.label(text="and you confirm exactly what is sent first.")
+    _say(intro, "Optional. Planning works fully offline.")
+    _say(intro, "With a key, Conjure can ask the AI to draft the plan,")
+    _say(intro, "and you confirm exactly what is sent first.")
     provider.prop(preferences, "api_key_environment_variable", text="Environment")
     key_row = provider.row(align=True)
     key_row.prop(secrets, "api_key", text="Session Key")
@@ -1027,19 +1037,19 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
         clear.provider = provider_id
     generation.operator("cozyverse.validate_generation_settings", text="Check Setup Locally", icon="CHECKMARK")
     note = generation.column(align=True)
-    note.label(text="Live jobs require fingerprint, budget and final confirmation", icon="LOCKED")
-    note.label(text="Keys stay session-only and never enter .blend files")
+    _say(note, "Live jobs require fingerprint, budget and final confirmation", icon="LOCKED")
+    _say(note, "Keys stay session-only and never enter .blend files")
     assets = layout.box()
     assets.label(text="YOUR ASSET SOURCES", icon="ASSET_MANAGER")
     assets.prop(preferences, "include_blender_asset_libraries")
     assets.prop(preferences, "custom_asset_folder")
     assets.operator("cozyverse.index_local_assets", text="Index Local Assets", icon="VIEWZOOM")
-    assets.label(text=f"Supported model files indexed: {context.scene.cozyverse.indexed_asset_count}", icon="CHECKMARK")
-    assets.label(text="Indexing reads filenames only; importing comes next", icon="LOCKED")
+    _say(assets, f"Supported model files indexed: {context.scene.cozyverse.indexed_asset_count}", icon="CHECKMARK")
+    _say(assets, "Indexing reads filenames only; importing comes next", icon="LOCKED")
     security = layout.box()
     security.label(text="CREDENTIAL SAFETY", icon="LOCKED")
     security.label(text="Keys are masked and session-only")
-    security.label(text="Keys are never saved in .blend files")
+    _say(security, "Keys are never saved in .blend files")
     security.label(text="Validation sends no network request")
     about = layout.box()
     about.label(text="BUILD", icon="BLENDER")
@@ -1066,7 +1076,7 @@ def _draw_library(context: bpy.types.Context, layout: bpy.types.UILayout, settin
     if record is None:
         note = body.row()
         note.active = False
-        note.label(text="Cars: built-in. Select a model, then Use as My Car.")
+        _say(note, "Cars: built-in. Select a model, then Use as My Car.")
         return
     row = body.row(align=True)
     row.template_icon(icon_value=library.thumbnail_id(record), scale=2.5)
@@ -1098,6 +1108,7 @@ class CV_PT_Main(bpy.types.Panel):
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
         settings = context.scene.cozyverse
+        _WIDTH[0] = _chars(context, pad=78)
         _draw_header(layout, context, settings)
         tab = settings.active_tab
         if tab != "CREATE":
@@ -1128,10 +1139,10 @@ class CV_TEXT_PT_Prompt(bpy.types.Panel):
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
-        layout.label(text="Write your description in the editor.")
+        _say(layout, "Write your description in the editor.")
         quiet = layout.row()
         quiet.active = False
-        quiet.label(text="Say what it is, where, when and the mood.")
+        _say(quiet, "Say what it is, where, when and the mood.")
         column = layout.column(align=True)
         column.scale_y = 1.6
         column.operator("cozyverse.prompt_studio_done", text="Done", icon="CHECKMARK", depress=True)
