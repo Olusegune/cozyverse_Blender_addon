@@ -24,7 +24,7 @@ ROLES = (
     ("UNTAGGED", "Untagged", "Not sorted yet"),
 )
 ROLE_WORDS = {
-    "CAR": {"car", "sedan", "taxi", "hatchback", "suv", "van", "truck", "pickup", "coupe", "jeep", "lorry", "bus", "vehicle", "cab", "wagon", "cars"},
+    "CAR": {"car", "sedan", "taxi", "hatchback", "suv", "van", "truck", "pickup", "coupe", "jeep", "lorry", "bus", "vehicle", "cab", "wagon", "cars", "jeepney", "tricycle", "scooter", "minivan", "sports", "hatch", "limo", "ambulance", "tuktuk"},
     "TREE": {"tree", "palm", "pine", "oak", "bush", "shrub", "plant", "birch", "willow", "trees", "forest"},
     "LAMP": {"lamp", "lantern", "streetlight", "lamppost", "lamp-post", "lights", "torch"},
     "BUILDING": {"house", "building", "shop", "cafe", "tower", "cottage", "hut", "store", "barn", "church", "castle", "station", "hall"},

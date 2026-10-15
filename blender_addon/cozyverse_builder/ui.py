@@ -8,7 +8,7 @@ import json
 from .core.composition_spec import profile_for
 from .core.scene_plan import proposed_plan
 from .core.style_spec import STYLE_PRESETS
-from . import library
+from . import director, library
 from .flow import LOOKS, SHOTS, TABS, _turntable_for
 from .motion import controller_for
 from .properties import _look_items_with_previews
@@ -129,10 +129,10 @@ def _draw_reads_as(layout: bpy.types.UILayout, settings) -> None:
     )
 
 
-def _draw_create(layout: bpy.types.UILayout, settings) -> None:
+def _draw_create(layout: bpy.types.UILayout, settings, context=None) -> None:
     world = _active_world(settings)
     if settings.workflow_step == "REVIEW":
-        _draw_review(layout, settings)
+        _draw_review(layout, settings, context)
         return
     if settings.workflow_step == "BUILT" and world is not None:
         _draw_built(layout, settings, world)
@@ -146,6 +146,16 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
     land = layout.row(align=True)
     land.prop(settings, "water_choice", text="Water")
     land.prop(settings, "terrain_choice", text="Land")
+    if context is not None:
+        ready, reason = director.ai_ready(context)
+        ai = layout.row()
+        ai.enabled = ready and not settings.director_busy
+        ai.prop(settings, "director_use_ai", text="Plan with AI", icon="LIGHT")
+        note = layout.row()
+        note.active = False
+        note.label(text=("Waiting for the AI..." if settings.director_busy else reason + " · asks before sending") if ready else reason, icon="TIME" if settings.director_busy else "NONE")
+        if ready and settings.director_use_ai and settings.reference_image is not None:
+            layout.prop(settings, "director_send_image")
     main = layout.row(align=True)
     main.scale_y = 2.2
     main.operator("cozyverse.conjure", text="Conjure World", icon="WORLD_DATA", depress=True)
@@ -203,7 +213,64 @@ def _draw_create(layout: bpy.types.UILayout, settings) -> None:
         layout.operator("cozyverse.dismiss_onboarding", text="Got it", icon="CHECKMARK")
 
 
-def _draw_review(layout: bpy.types.UILayout, settings) -> None:
+def _draw_director_plan(layout: bpy.types.UILayout, context, settings) -> None:
+    """The Director's plan: where it came from, what it will build, and where each thing comes from."""
+    blueprint = director.stored_blueprint(settings)
+    if blueprint is None:
+        return
+    box = layout.box()
+    ai = blueprint.source.startswith("AI")
+    top = box.row()
+    top.label(text="Director's plan", icon="LIGHT" if ai else "TEXT")
+    tag = top.row()
+    tag.alignment = "RIGHT"
+    tag.label(text="AI draft" if ai else "Offline plan")
+    if blueprint.summary:
+        for line in _wrapped_lines(blueprint.summary, width=42, limit=3):
+            box.label(text=line)
+    for line in spec_describe(blueprint):
+        row = box.row()
+        row.active = False
+        row.label(text=line[:60])
+    rows = director.resolve_assets(context, blueprint)
+    if rows:
+        things = box.box()
+        things.label(text="Where each thing comes from", icon="ASSET_MANAGER")
+        icons = {"LIBRARY": "CHECKMARK", "PROCEDURAL": "MESH_CUBE", "GENERATE": "URL"}
+        words = {"LIBRARY": "your library", "PROCEDURAL": "built here", "GENERATE": "could be generated"}
+        for row in rows:
+            line = things.row(align=True)
+            line.label(text=f"{row['description'][:26]}", icon=icons[row["resolution"]])
+            tail = line.row()
+            tail.alignment = "RIGHT"
+            tail.label(text=(row["name"][:16] if row["resolution"] == "LIBRARY" else words[row["resolution"]]))
+            if row["resolution"] == "GENERATE":
+                button = things.row()
+                op = button.operator("cozyverse.director_prepare_generation", text=f"Prepare generation (about {row['credits']} credits)", icon="URL")
+                op.description = row["description"]
+    for warning in blueprint.warnings:
+        note = box.row()
+        note.alert = True
+        note.label(text=warning[:60], icon="ERROR")
+    if ai:
+        sent = box.row()
+        sent.active = False
+        sent.label(text="Only your description left this computer.", icon="LOCKED")
+    if settings.director_status:
+        status = box.row()
+        status.active = False
+        status.label(text=settings.director_status[:60])
+
+
+def spec_describe(blueprint):
+    from .core.blueprint_spec import describe_blueprint
+
+    return describe_blueprint(blueprint)
+
+
+def _draw_review(layout: bpy.types.UILayout, settings, context=None) -> None:
+    if context is not None:
+        _draw_director_plan(layout, context, settings)
     plan = layout.box()
     plan.label(text="Review the plan", icon="DOCUMENTS")
     plan.prop(settings, "plan_title")
@@ -238,6 +305,82 @@ def _draw_review(layout: bpy.types.UILayout, settings) -> None:
     build.operator("cozyverse.build_approved_plan", text="Build New Version", icon="MOD_BUILD", depress=True)
 
 
+def _draw_director_report(layout: bpy.types.UILayout, settings) -> None:
+    if not settings.director_report_json:
+        return
+    try:
+        report = json.loads(settings.director_report_json)
+    except ValueError:
+        return
+    header, body = layout.panel("cv_built_report", default_closed=True)
+    header.label(text="What the Director did", icon="LIGHT")
+    if body is None:
+        return
+    for note in report.get("notes", []):
+        body.label(text=note[:60], icon="CHECKMARK")
+    if report.get("procedural"):
+        body.label(text=f"Built here: {', '.join(report['procedural'])[:50]}", icon="MESH_CUBE")
+    for item in report.get("generate", []):
+        row = body.row()
+        row.label(text=item["description"][:30], icon="URL")
+        op = row.operator("cozyverse.director_prepare_generation", text=f"Generate (~{item['credits']})")
+        op.description = item["description"]
+
+
+def _draw_followup(layout: bpy.types.UILayout, settings) -> None:
+    header, body = layout.panel("cv_built_director", default_closed=False)
+    header.label(text="Ask the Director", icon="LIGHT")
+    if body is None:
+        return
+    body.prop(settings, "director_text", text="", placeholder="more flowers, less clutter, warmer")
+    chips = body.grid_flow(row_major=True, columns=2, align=True)
+    for label, text in (("More plants", "more flowers and plants"), ("Less clutter", "less clutter"), ("Make it rainy", "make it rainy"), ("Warmer", "warmer light"), ("Night", "make it a starry night"), ("Add a lake", "add a lake")):
+        chips.operator("cozyverse.director_example", text=label).text = text
+    row = body.row()
+    row.scale_y = 1.3
+    row.enabled = bool(settings.director_text.strip()) and not settings.director_busy
+    row.operator("cozyverse.director_preview", text="Preview Changes", icon="VIEWZOOM")
+    if settings.director_busy:
+        body.label(text="Waiting for the AI...", icon="TIME")
+    if settings.director_preview_json:
+        try:
+            preview = json.loads(settings.director_preview_json)
+        except ValueError:
+            preview = {"lines": [], "notes": []}
+        box = body.box()
+        box.label(text="This would:", icon="CHECKMARK" if preview["lines"] else "ERROR")
+        for line in preview["lines"]:
+            box.label(text=line[:58])
+        for note in preview.get("notes", []):
+            hint = box.row()
+            hint.active = False
+            hint.label(text=note[:58])
+        if preview["lines"]:
+            actions = box.row(align=True)
+            actions.scale_y = 1.4
+            actions.operator("cozyverse.director_apply", text="Apply", icon="CHECKMARK", depress=True)
+            actions.operator("cozyverse.director_discard", text="Discard", icon="X")
+            locks = box.row()
+            locks.active = False
+            locks.label(text="Locked items stay put. Ctrl+Z undoes this.", icon="LOCKED")
+    if settings.director_result_json:
+        try:
+            results = json.loads(settings.director_result_json)
+        except ValueError:
+            results = []
+        box = body.box()
+        for line in results:
+            row = box.row()
+            row.active = line.startswith("Done")
+            row.label(text=line[:60], icon="CHECKMARK" if line.startswith("Done") else "INFO")
+        box.operator("cozyverse.director_discard", text="Dismiss", icon="X")
+    if settings.director_status and not settings.director_preview_json:
+        note = body.row()
+        note.active = False
+        note.label(text=settings.director_status[:60])
+    body.operator("cozyverse.director_restore", text="Bring back archived items", icon="LOOP_BACK")
+
+
 def _draw_built(layout: bpy.types.UILayout, settings, world) -> None:
     objects = world.all_objects
     hero = layout.box()
@@ -252,6 +395,8 @@ def _draw_built(layout: bpy.types.UILayout, settings, world) -> None:
         sub.active = False
         sub.label(text=f"{world.get('cv_composition_label', 'World')} in {style}")
 
+    _draw_director_report(layout, settings)
+    _draw_followup(layout, settings)
     layout.label(text="What next?")
     steps = layout.column(align=True)
     steps.scale_y = 1.35
@@ -745,6 +890,13 @@ def _draw_settings(context: bpy.types.Context, layout: bpy.types.UILayout) -> No
     provider.label(text="DIRECTOR AI", icon="NETWORK_DRIVE")
     provider.prop(preferences, "provider", text="")
     provider.prop(preferences, "model_name")
+    if preferences.provider == "CUSTOM":
+        provider.prop(preferences, "director_base_url")
+    intro = provider.column(align=True)
+    intro.active = False
+    intro.label(text="Optional. Planning works fully offline.")
+    intro.label(text="With a key, Conjure can ask the AI to draft the plan,")
+    intro.label(text="and you confirm exactly what is sent first.")
     provider.prop(preferences, "api_key_environment_variable", text="Environment")
     key_row = provider.row(align=True)
     key_row.prop(secrets, "api_key", text="Session Key")
@@ -839,7 +991,7 @@ class CV_PT_Main(bpy.types.Panel):
         _draw_header(layout, context, settings)
         tab = settings.active_tab
         if tab == "CREATE":
-            _draw_create(layout, settings)
+            _draw_create(layout, settings, context)
         elif tab == "ATMOSPHERE":
             _draw_atmosphere(layout, settings)
         elif tab == "SHOT":

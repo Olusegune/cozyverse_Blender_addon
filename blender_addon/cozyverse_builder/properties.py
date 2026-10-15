@@ -139,7 +139,7 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
     )
     provider: EnumProperty(
         name="AI Provider",
-        description="Provider configuration for a future approved planner integration",
+        description="The AI model that can draft plans and answer follow-ups. Optional: planning works fully offline",
         items=(
             ("NONE", "Local Only", "Disable external AI providers"),
             ("OPENAI", "OpenAI", "Configure an OpenAI-compatible provider"),
@@ -150,7 +150,7 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
     )
     model_name: StringProperty(
         name="Model",
-        description="Provider model identifier; no request is made in this foundation build",
+        description="Model name, e.g. claude-sonnet-5-5 for Anthropic. Required for OpenAI and custom servers",
         default="",
         maxlen=128,
     )
@@ -170,6 +170,12 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
         ),
         default="NONE",
     )
+    director_base_url: StringProperty(
+        name="Server Address",
+        description="For a Custom provider: an OpenAI-compatible server, e.g. https://example.com/v1 or http://localhost:1234 for a model running on this computer",
+        default="",
+        maxlen=300,
+    )
     custom_asset_folder: StringProperty(
         name="Local Asset Folder",
         description="Optional folder containing your .blend, GLB, GLTF, FBX, or OBJ models",
@@ -187,6 +193,8 @@ class CV_AddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "local_demo_only")
         layout.prop(self, "provider")
         layout.prop(self, "model_name")
+        if self.provider == "CUSTOM":
+            layout.prop(self, "director_base_url")
         layout.prop(self, "api_key_environment_variable")
         layout.prop(self, "generation_provider")
         layout.prop(self, "include_blender_asset_libraries")
@@ -342,6 +350,19 @@ class CV_SceneSettings(bpy.types.PropertyGroup):
         default="AUTO",
     )
     water_waves: FloatProperty(name="Waves", description="How much the water ripples. Wind and rain add to it", default=50.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
+    director_use_ai: BoolProperty(name="Plan with AI", description="Let your AI model draft the plan. You confirm exactly what is sent before anything leaves your computer", default=False)
+    director_send_image: BoolProperty(name="Include my reference image", description="Send a reduced copy of the reference image with the request. Off unless you turn it on", default=False)
+    director_blueprint_json: StringProperty(name="Director Plan", default="", options={"HIDDEN"})
+    director_source: StringProperty(name="Plan Source", default="", options={"HIDDEN"})
+    director_plan_key: StringProperty(name="Plan Key", default="", options={"HIDDEN"})
+    director_pending: BoolProperty(name="Plan Pending", default=False, options={"HIDDEN"})
+    director_busy: BoolProperty(name="Waiting for AI", default=False, options={"HIDDEN"})
+    director_status: StringProperty(name="Director Status", default="")
+    director_text: StringProperty(name="Ask the Director", description="What would you like to change?", default="", maxlen=600)
+    director_commands_json: StringProperty(name="Previewed Commands", default="", options={"HIDDEN"})
+    director_preview_json: StringProperty(name="Preview", default="", options={"HIDDEN"})
+    director_result_json: StringProperty(name="Result", default="", options={"HIDDEN"})
+    director_report_json: StringProperty(name="Report", default="", options={"HIDDEN"})
     stars_amount: FloatProperty(name="Stars", description="How many stars show on a clear night", default=70.0, min=0.0, max=100.0, subtype="PERCENTAGE", update=_update_atmosphere)
     ui_advanced: BoolProperty(name="Advanced controls", description="Show every lighting, weather and season control", default=False)
     daycycle_seconds: FloatProperty(name="Length", description="How long one full day and night takes", default=12.0, min=2.0, max=120.0, unit="TIME_ABSOLUTE")

@@ -25,7 +25,7 @@ try:
     # One click builds an approved, presented world.
     assert bpy.ops.cozyverse.surprise() == {"FINISHED"}
     assert settings.prompt
-    settings.prompt = "A rainy cafe corner with warm glowing windows"
+    settings.prompt = "A cafe corner with warm glowing windows"
     assert bpy.ops.cozyverse.conjure() == {"FINISHED"}
     assert settings.workflow_step == "BUILT"
     first = settings.active_world_name

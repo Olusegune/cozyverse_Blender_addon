@@ -8,6 +8,8 @@ What's new in 0.17:
 - one tabbed panel (Create, Mood, Shot, Motion, Assets, Activity, Settings) with a guided "What next?";
 - ten cinematic looks, a real sky with stars and drifting clouds, soft fog, and **Animate a Day**;
 - build-up animation, ambient life, procedural cars and a train, a turntable, and **Render a clip** to MP4;
+- lakes, ponds, rivers, island seas and hills, with moving, weather-aware, freezing water;
+- the **Director**: a validated plan from your words (offline, or from an AI model you choose and confirm), your library used first, and follow-ups like "more flowers, less clutter, warmer" that never touch locked objects;
 - a **Library** of your own models with generated thumbnails, roles, licences, auto-fit and a car slot.
 
 The foundation build provides:

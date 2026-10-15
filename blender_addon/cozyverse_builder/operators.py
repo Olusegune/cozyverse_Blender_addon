@@ -535,7 +535,11 @@ class CV_OT_PrepareScenePlan(bpy.types.Operator):
             settings.recovery_hint = "Open Prompt Composer or choose a Quick Start template."
             settings.status = settings.last_error
             return {"CANCELLED"}
-        plan = dataclasses.replace(proposed_plan(prompt, settings.preset), prompt=_plan_prompt(settings))
+        from . import director
+        from .core.blueprint_spec import blueprint_to_plan
+
+        plan = dataclasses.replace(blueprint_to_plan(director.plan_for(context)), prompt=_plan_prompt(settings))
+        settings.director_pending = True
         water = plan.water if settings.water_choice == "AUTO" else settings.water_choice
         terrain = plan.terrain if settings.terrain_choice == "AUTO" else settings.terrain_choice
         plan = dataclasses.replace(plan, water=water, terrain=terrain, base_shape="ISLAND" if water == "SEA" else ("ROUNDED_RECT" if plan.base_shape == "ISLAND" else plan.base_shape))
@@ -663,6 +667,12 @@ class CV_OT_BuildApprovedPlan(bpy.types.Operator):
             settings.recovery_hint = "Use Select & Frame to inspect it. Previous versions remain untouched."
             settings.status = f"World ready: {world.name}" + (f" ({hidden} earlier version{'s' if hidden != 1 else ''} hidden)" if hidden else "")
             _log_activity(context, "SUCCESS", f"Built {world.name} from approved revision preview; source={source_world or 'new'}")
+            try:
+                from . import director
+
+                director.finish_world(context)  # the rest of the plan: mood, motion, your own models
+            except (RuntimeError, ValueError) as exc:
+                _log_activity(context, "ERROR", f"The rest of the plan could not be applied: {exc}")
             self.report({"INFO"}, settings.status)
             return {"FINISHED"}
         except (ValueError, RuntimeError) as exc:

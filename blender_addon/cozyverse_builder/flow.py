@@ -84,6 +84,13 @@ class CV_OT_Conjure(bpy.types.Operator):
         if not _prompt_from_settings(settings):
             self.report({"WARNING"}, "Describe your world first, or press the dice for an idea")
             return {"CANCELLED"}
+        if not self.remix and settings.director_use_ai and not settings.director_busy:
+            from . import director
+
+            stored = director.stored_blueprint(settings)
+            if (stored is None or not stored.source.startswith("AI")) and director.ai_ready(context)[0]:
+                bpy.ops.cozyverse.director_ask("INVOKE_DEFAULT")  # shows what will be sent and waits for your yes
+                return {"FINISHED"}
         if self.remix:
             try:
                 plan = _plan_from_settings(settings)

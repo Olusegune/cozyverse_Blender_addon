@@ -34,6 +34,19 @@ The panel has one row of tabs:
 - **Render a clip:** builds the world up while the camera orbits it, and renders an MP4 next to your `.blend` (720p or 1080p). Everything is editable keyframes, so you can retime before rendering.
 - **Library:** add any folder of `.blend`, `.glb`, `.gltf`, `.fbx` or `.obj` models (and Blender asset libraries). Models get real thumbnails, a role (Car, Tree, Street lamp, Building, Person, Prop), a licence flag, a front direction and an optional *flatten to clay colors* switch, and your choices are remembered between projects. **Place in World** stands a model on the ground at a size that suits its role. **Use as My Car** makes the cars on your road use your model, with a built-in fallback. Models marked *Editorial only* warn you before you render.
 
+## The Director
+
+The Director turns your description into a **plan**, then keeps editing the world when you ask.
+
+- **Planning works offline.** Press Conjure and the Director reads your words: the kind of place, water and hills, the mood ("rainy", "dusk", "starry"), the season, whether cars or a train belong, and the specific things you named ("a sari-sari store", "a jeepney"). After the build it applies the mood and motion, uses **your own library models first** where one fits, and builds simple stand-ins for the rest. Big unique things it could not find are listed as **could be generated**, with an estimated cost, and a button fills in the 3D asset factory for you. Nothing is sent or charged until you review that there.
+- **Review shows the plan** (turn on *Review the plan first*): where each thing comes from, any warnings, and the fields you can still edit.
+- **Ask the Director** appears after a build. Type a change, or use a chip, and press **Preview Changes**. You see exactly what would happen. **Apply** makes the changes; **Ctrl+Z** undoes them.
+  - "More flowers, less clutter, warmer" adds flowers on free, level ground, archives some props (hidden in `CV_ARCHIVE`, never deleted; *Bring back archived items* restores them) and warms the light.
+  - Mood, weather, season, camera, motion, and sizes work the same way. "Add a lake" builds a **new version** and hides the old one.
+  - **Locked objects are never moved, scaled or archived.** Use *Protect Selected* to lock the things you have placed by hand.
+- **Plan with AI (optional).** In Settings choose a provider (Anthropic, OpenAI, or a custom OpenAI-compatible server, including one running on your own computer), set the model, and enter your key for this session. Then turn on *Plan with AI* under the prompt. Before anything is sent you see a list: the provider, the model, your description, and whether a reduced copy of your reference image goes too (off unless you tick *Include my reference image*). Follow-up requests send only a short summary of the world, never file names or paths. Your key travels in a header only and is never saved in the `.blend` or shown in logs.
+- **What the AI can and cannot do.** Its answer is only ever data: it is checked field by field, clamped to safe ranges, and rejected whole if it contains anything that looks like code. It can never name files on your computer, and follow-ups are limited to a fixed list of commands. If the service fails or sends something unusable, you get the offline plan with a plain-words note.
+
 ## Your library and licences
 
 CozyVerse only lists and previews your files; it never runs anything inside them and strips drivers from imported objects. Set each folder's licence once (the menu next to its name) and change single models as needed. Models are never copied into the add-on, so commercial packs stay on your machine.

@@ -13,3 +13,11 @@ The provider, model, and environment-variable name are configuration metadata an
 Persistent credential storage is intentionally absent. A future implementation must use an approved operating-system credential vault or an equivalently reviewed mechanism. It must not store plaintext secrets in `.blend` files, Blender preferences, logs, project JSON, or source control.
 
 No provider adapter, credential verification request, or paid API action exists in this foundation release.
+
+## The Director and AI models
+
+- The Director is optional. With no provider or key, planning and follow-ups run entirely on this computer.
+- Before any request is sent, the add-on shows the provider, the model, and exactly what leaves the machine. Nothing is sent without that confirmation.
+- Requests go only to `api.anthropic.com`, `api.openai.com`, or a custom server you enter (https, or http for localhost only; no embedded credentials). Your key is sent as a header, kept in memory for the session, and redacted from errors and logs.
+- A model's reply is parsed as data and validated field by field. Replies containing code-like text or executable keys are rejected whole. A model can never name local files, and follow-up edits are limited to a fixed list of commands. No model output is ever executed.
+- Locked objects are never changed. Removals archive objects instead of deleting them.
